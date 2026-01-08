@@ -10,4 +10,5 @@ public class LmsManagementSystemApplication {
 		SpringApplication.run(LmsManagementSystemApplication.class, args);
 	}
 
+	
 }

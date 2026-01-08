@@ -3,8 +3,10 @@ package com.lms.management.service.impl;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.lms.management.exception.ResourceNotFoundException;
+import com.lms.management.exception.UnauthorizedAccessException;
 import com.lms.management.model.Course;
 import com.lms.management.model.Topic;
 import com.lms.management.repository.CourseRepository;
@@ -24,24 +26,43 @@ public class TopicServiceImpl implements TopicService {
     public Topic createTopic(Long courseId, Topic topic) {
 
         Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new ResourceNotFoundException("Course not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Course not found with id: " + courseId)
+                );
 
         topic.setCourse(course);
         return topicRepository.save(topic);
     }
 
+    // ✅ FIX HERE
     @Override
+    @Transactional(readOnly = true)
     public Topic getTopicById(Long topicId) {
-        return topicRepository.findById(topicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Topic not found"));
+
+        Topic topic = topicRepository.findById(topicId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Topic not found with id: " + topicId)
+                );
+
+        // SAFE: session is open
+        enforceContentAccess(topic.getCourse());
+        return topic;
     }
 
+    // ✅ FIX HERE
     @Override
+    @Transactional(readOnly = true)
     public List<Topic> getTopicsByCourseId(Long courseId) {
+
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Course not found with id: " + courseId)
+                );
+
+        enforceContentAccess(course);
         return topicRepository.findByCourseCourseId(courseId);
     }
 
-    // ✅ NEW: Get all topics
     @Override
     public List<Topic> getAllTopics() {
         return topicRepository.findAll();
@@ -51,9 +72,10 @@ public class TopicServiceImpl implements TopicService {
     public Topic updateTopic(Long topicId, Topic request) {
 
         Topic existing = topicRepository.findById(topicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Topic not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Topic not found with id: " + topicId)
+                );
 
-        // PUT behaves like PATCH
         if (request.getTopicName() != null)
             existing.setTopicName(request.getTopicName());
 
@@ -70,8 +92,18 @@ public class TopicServiceImpl implements TopicService {
     public void deleteTopic(Long topicId) {
 
         Topic existing = topicRepository.findById(topicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Topic not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Topic not found with id: " + topicId)
+                );
 
         topicRepository.delete(existing);
+    }
+
+    private void enforceContentAccess(Course course) {
+        if (Boolean.FALSE.equals(course.getEnableContentAccess())) {
+            throw new UnauthorizedAccessException(
+                    "Content access is disabled for this course"
+            );
+        }
     }
 }

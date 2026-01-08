@@ -9,32 +9,28 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "topics")
 @Getter
 @Setter
-public class Topic {
+@Table(name = "topic_contents")
+public class TopicContent {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long topicId;
+    private Long contentId;
 
     @Column(nullable = false)
-    private String topicName;
+    private String contentType;   // VIDEO / PDF
 
-    private String topicDescription;
+    @Column(nullable = false)
+    private String fileUrl;
 
-    private String status;
+    private Integer contentOrder;
 
-    /**
-     * IMPORTANT:
-     * - LAZY is correct
-     * - JsonIgnore prevents LazyInitializationException
-     * - Access checks can still use course internally
-     */
+    // 🔥 THIS IS THE FIX
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "course_id", nullable = false)
-    @JsonIgnore
-    private Course course;
+    @JoinColumn(name = "topic_id", nullable = false)
+    @JsonIgnore   // ✅ prevents Topic → Course lazy crash
+    private Topic topic;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

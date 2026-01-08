@@ -54,6 +54,10 @@ public class CourseServiceImpl implements CourseService {
         if (incoming.getStatus() != null)
             existing.setStatus(incoming.getStatus());
 
+        // ✅ FIX: COURSE IMAGE URL
+        if (incoming.getCourseImageUrl() != null)
+            existing.setCourseImageUrl(incoming.getCourseImageUrl());
+
         if (incoming.getShowValidity() != null)
             existing.setShowValidity(incoming.getShowValidity());
 

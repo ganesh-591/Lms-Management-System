@@ -13,7 +13,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.lms.management.exception.ResourceNotFoundException;
+import com.lms.management.exception.UnauthorizedAccessException;
+import com.lms.management.model.Course;
 import com.lms.management.model.Topic;
+import com.lms.management.repository.CourseRepository;
 import com.lms.management.service.TopicService;
 
 import lombok.RequiredArgsConstructor;
@@ -24,8 +28,11 @@ import lombok.RequiredArgsConstructor;
 public class TopicController {
 
     private final TopicService topicService;
+    private final CourseRepository courseRepository;
 
-    // Create topic under a course
+    // ===============================
+    // CREATE TOPIC (NO ACCESS CHECK)
+    // ===============================
     @PostMapping("/course/{courseId}")
     public ResponseEntity<Topic> createTopic(
             @PathVariable Long courseId,
@@ -35,7 +42,9 @@ public class TopicController {
         return new ResponseEntity<>(createdTopic, HttpStatus.CREATED);
     }
 
-    // ✅ NEW: Get all topics (admin use)
+    // ===============================
+    // GET ALL TOPICS (ADMIN USE)
+    // ===============================
     @GetMapping
     public ResponseEntity<List<Topic>> getAllTopics() {
 
@@ -43,7 +52,9 @@ public class TopicController {
         return ResponseEntity.ok(topics);
     }
 
-    // Get topic by ID
+    // ===============================
+    // GET TOPIC BY ID (NO COURSE CHECK)
+    // ===============================
     @GetMapping("/{topicId}")
     public ResponseEntity<Topic> getTopicById(@PathVariable Long topicId) {
 
@@ -51,16 +62,30 @@ public class TopicController {
         return ResponseEntity.ok(topic);
     }
 
-    // Get all topics by course ID
+    // ===============================
+    // GET TOPICS BY COURSE (ACCESS ENFORCED)
+    // ===============================
     @GetMapping("/course/{courseId}")
     public ResponseEntity<List<Topic>> getTopicsByCourseId(
             @PathVariable Long courseId) {
+
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Course not found with id: " + courseId)
+                );
+
+        // 🔒 ENFORCE CONTENT ACCESS
+        if (Boolean.FALSE.equals(course.getEnableContentAccess())) {
+            throw new UnauthorizedAccessException("Course content access is disabled");
+        }
 
         List<Topic> topics = topicService.getTopicsByCourseId(courseId);
         return ResponseEntity.ok(topics);
     }
 
-    // Update topic (PUT behaves like PATCH)
+    // ===============================
+    // UPDATE TOPIC (NO ACCESS CHECK)
+    // ===============================
     @PutMapping("/{topicId}")
     public ResponseEntity<Topic> updateTopic(
             @PathVariable Long topicId,
@@ -70,7 +95,9 @@ public class TopicController {
         return ResponseEntity.ok(updatedTopic);
     }
 
-    // Delete topic
+    // ===============================
+    // DELETE TOPIC (NO ACCESS CHECK)
+    // ===============================
     @DeleteMapping("/{topicId}")
     public ResponseEntity<Void> deleteTopic(@PathVariable Long topicId) {
 
