@@ -4,7 +4,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -39,9 +38,21 @@ public class Course {
 
     private String courseImageUrl;
 
-    // 🔴 THIS WAS CAUSING THE ERROR
+    // 🔗 SHARE FEATURE (stored)
+    @Column(unique = true)
+    private String shareCode;
+
+    private Boolean shareEnabled = true;
+
+    // ❌ NOT stored in DB (computed every GET)
+    @Transient
+    private String shareLink;
+
     @OneToMany(mappedBy = "course", fetch = FetchType.LAZY)
-    @JsonIgnore   // ✅ FINAL FIX
+    @JsonIgnore
+    private List<Topic> topicRelation;
+
+    @Transient
     private List<Topic> topics;
 
     private LocalDateTime createdAt;

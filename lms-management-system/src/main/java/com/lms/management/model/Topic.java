@@ -1,6 +1,7 @@
 package com.lms.management.model;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -22,19 +23,16 @@ public class Topic {
     private String topicName;
 
     private String topicDescription;
-
     private String status;
 
-    /**
-     * IMPORTANT:
-     * - LAZY is correct
-     * - JsonIgnore prevents LazyInitializationException
-     * - Access checks can still use course internally
-     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "course_id", nullable = false)
     @JsonIgnore
     private Course course;
+
+    // Runtime-only for share API
+    @Transient
+    private List<TopicContent> contents;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

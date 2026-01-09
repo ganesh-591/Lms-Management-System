@@ -1,6 +1,7 @@
 package com.lms.management.service.impl;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
@@ -20,10 +21,21 @@ public class CourseServiceImpl implements CourseService {
 
     @Override
     public Course createCourse(Course course) {
+
+        // Generate share code once
+        course.setShareCode("SHR-" + UUID.randomUUID().toString().substring(0, 8));
+        course.setShareEnabled(true);
+
         applyValidityRule(course);
-        return courseRepository.save(course);
+        Course saved = courseRepository.save(course);
+
+        attachShareLink(saved);
+        return saved;
     }
 
+    /**
+     * PUT ACTS AS PATCH
+     */
     @Override
     public Course updateCourse(Long courseId, Course incoming) {
 
@@ -32,7 +44,6 @@ public class CourseServiceImpl implements CourseService {
                         new ResourceNotFoundException("Course not found with id: " + courseId)
                 );
 
-        // ===== PATCH-LIKE MERGE =====
         if (incoming.getCourseName() != null)
             existing.setCourseName(incoming.getCourseName());
 
@@ -54,10 +65,6 @@ public class CourseServiceImpl implements CourseService {
         if (incoming.getStatus() != null)
             existing.setStatus(incoming.getStatus());
 
-        // ✅ FIX: COURSE IMAGE URL
-        if (incoming.getCourseImageUrl() != null)
-            existing.setCourseImageUrl(incoming.getCourseImageUrl());
-
         if (incoming.getShowValidity() != null)
             existing.setShowValidity(incoming.getShowValidity());
 
@@ -73,35 +80,72 @@ public class CourseServiceImpl implements CourseService {
         if (incoming.getEnableContentAccess() != null)
             existing.setEnableContentAccess(incoming.getEnableContentAccess());
 
-        // ===== BUSINESS RULE =====
-        applyValidityRule(existing);
+        if (incoming.getShareEnabled() != null)
+            existing.setShareEnabled(incoming.getShareEnabled());
 
-        return courseRepository.save(existing);
+        // generate shareCode only if enabled and missing
+        if (Boolean.TRUE.equals(existing.getShareEnabled())
+                && existing.getShareCode() == null) {
+            existing.setShareCode("SHR-" + UUID.randomUUID().toString().substring(0, 8));
+        }
+
+        applyValidityRule(existing);
+        Course saved = courseRepository.save(existing);
+
+        attachShareLink(saved);
+        return saved;
     }
 
+    // ✅ FIXED: SHARE LINK ATTACHED ON GET
     @Override
     public Course getCourseById(Long courseId) {
-        return courseRepository.findById(courseId)
+
+        Course course = courseRepository.findById(courseId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Course not found with id: " + courseId)
                 );
+
+        attachShareLink(course);
+        return course;
     }
 
+    // ✅ FIXED: SHARE LINK ATTACHED FOR LIST
     @Override
     public List<Course> getAllCourses() {
-        return courseRepository.findAll();
+
+        List<Course> courses = courseRepository.findAll();
+        courses.forEach(this::attachShareLink);
+        return courses;
     }
 
     @Override
     public void deleteCourse(Long courseId) {
+
         Course course = getCourseById(courseId);
-        courseRepository.delete(course);
+        course.setStatus("INACTIVE");
+        courseRepository.save(course);
     }
 
-    // ===== VALIDITY RULE =====
+    // ===============================
+    // HELPERS
+    // ===============================
+
     private void applyValidityRule(Course course) {
         if (Boolean.FALSE.equals(course.getShowValidity())) {
             course.setValidityInDays(null);
+        }
+    }
+
+    // 🔗 CORE FIX
+    private void attachShareLink(Course course) {
+        if (Boolean.TRUE.equals(course.getShareEnabled())
+                && course.getShareCode() != null) {
+
+            course.setShareLink(
+                    "https://yourapp.com/share/" + course.getShareCode()
+            );
+        } else {
+            course.setShareLink(null);
         }
     }
 }
