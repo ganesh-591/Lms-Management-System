@@ -19,6 +19,9 @@ public class CourseServiceImpl implements CourseService {
         this.courseRepository = courseRepository;
     }
 
+    // ===============================
+    // CREATE COURSE
+    // ===============================
     @Override
     public Course createCourse(Course course) {
 
@@ -27,15 +30,15 @@ public class CourseServiceImpl implements CourseService {
         course.setShareEnabled(true);
 
         applyValidityRule(course);
-        Course saved = courseRepository.save(course);
 
+        Course saved = courseRepository.save(course);
         attachShareLink(saved);
         return saved;
     }
 
-    /**
-     * PUT ACTS AS PATCH
-     */
+    // ===============================
+    // UPDATE COURSE (PUT AS PATCH)
+    // ===============================
     @Override
     public Course updateCourse(Long courseId, Course incoming) {
 
@@ -83,20 +86,27 @@ public class CourseServiceImpl implements CourseService {
         if (incoming.getShareEnabled() != null)
             existing.setShareEnabled(incoming.getShareEnabled());
 
-        // generate shareCode only if enabled and missing
+        // ✅ FIX: update image ONLY if new image exists
+        if (incoming.getCourseImageUrl() != null) {
+            existing.setCourseImageUrl(incoming.getCourseImageUrl());
+        }
+
+        // Generate share code only if enabled and missing
         if (Boolean.TRUE.equals(existing.getShareEnabled())
                 && existing.getShareCode() == null) {
             existing.setShareCode("SHR-" + UUID.randomUUID().toString().substring(0, 8));
         }
 
         applyValidityRule(existing);
-        Course saved = courseRepository.save(existing);
 
+        Course saved = courseRepository.save(existing);
         attachShareLink(saved);
         return saved;
     }
 
-    // ✅ FIXED: SHARE LINK ATTACHED ON GET
+    // ===============================
+    // GET COURSE BY ID
+    // ===============================
     @Override
     public Course getCourseById(Long courseId) {
 
@@ -109,7 +119,9 @@ public class CourseServiceImpl implements CourseService {
         return course;
     }
 
-    // ✅ FIXED: SHARE LINK ATTACHED FOR LIST
+    // ===============================
+    // GET ALL COURSES
+    // ===============================
     @Override
     public List<Course> getAllCourses() {
 
@@ -118,6 +130,9 @@ public class CourseServiceImpl implements CourseService {
         return courses;
     }
 
+    // ===============================
+    // DELETE COURSE (SOFT DELETE)
+    // ===============================
     @Override
     public void deleteCourse(Long courseId) {
 
@@ -125,18 +140,21 @@ public class CourseServiceImpl implements CourseService {
         course.setStatus("INACTIVE");
         courseRepository.save(course);
     }
+    public void hardDeleteCourse(Long courseId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found"));
+        courseRepository.delete(course);
+    }
 
     // ===============================
     // HELPERS
     // ===============================
-
     private void applyValidityRule(Course course) {
         if (Boolean.FALSE.equals(course.getShowValidity())) {
             course.setValidityInDays(null);
         }
     }
 
-    // 🔗 CORE FIX
     private void attachShareLink(Course course) {
         if (Boolean.TRUE.equals(course.getShareEnabled())
                 && course.getShareCode() != null) {

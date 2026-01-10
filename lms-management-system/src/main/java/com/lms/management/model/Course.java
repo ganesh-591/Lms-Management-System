@@ -1,10 +1,16 @@
 package com.lms.management.model;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -27,7 +33,9 @@ public class Course {
     private Double courseFee;
 
     private Boolean certificateProvided;
-    private String status;
+
+    // ✅ ACTIVE by default
+    private String status = "ACTIVE";
 
     private Boolean showValidity;
     private Integer validityInDays;
@@ -44,20 +52,16 @@ public class Course {
 
     private Boolean shareEnabled = true;
 
-    // ❌ NOT stored in DB (computed every GET)
+    // 🔗 SHARE LINK (computed, not stored)
     @Transient
     private String shareLink;
-
-    @OneToMany(mappedBy = "course", fetch = FetchType.LAZY)
-    @JsonIgnore
-    private List<Topic> topicRelation;
-
-    @Transient
-    private List<Topic> topics;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    // ===============================
+    // LIFECYCLE
+    // ===============================
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
@@ -67,5 +71,16 @@ public class Course {
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    // ===============================
+    // EXPLICIT METHODS (IMPORTANT)
+    // ===============================
+    public String getShareLink() {
+        return shareLink;
+    }
+
+    public void setShareLink(String shareLink) {
+        this.shareLink = shareLink;
     }
 }

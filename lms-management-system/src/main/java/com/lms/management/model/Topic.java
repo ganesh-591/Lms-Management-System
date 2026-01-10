@@ -25,13 +25,17 @@ public class Topic {
     private String topicDescription;
     private String status;
 
+    // 🔗 Relation to Course (NOT exposed in API)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "course_id", nullable = false)
     @JsonIgnore
     private Course course;
 
-    // Runtime-only for share API
+    // ❌ NOT stored in DB
+    // ❌ NOT shown in normal APIs
+    // ✅ Used ONLY in share API (manually set)
     @Transient
+    @JsonIgnore
     private List<TopicContent> contents;
 
     private LocalDateTime createdAt;
