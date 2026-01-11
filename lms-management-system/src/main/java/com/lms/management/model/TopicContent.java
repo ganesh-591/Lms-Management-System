@@ -3,7 +3,6 @@ package com.lms.management.model;
 import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -21,15 +20,15 @@ public class TopicContent {
     @Column(nullable = false)
     private String contentType;   // VIDEO / PDF
 
-    @Column(nullable = false)
+    // ✅ ALLOW NULL (file uploaded later)
+    @Column(nullable = true)
     private String fileUrl;
 
     private Integer contentOrder;
 
-    // 🔥 THIS IS THE FIX
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "topic_id", nullable = false)
-    @JsonIgnore   // ✅ prevents Topic → Course lazy crash
+    @JsonIgnore
     private Topic topic;
 
     private LocalDateTime createdAt;

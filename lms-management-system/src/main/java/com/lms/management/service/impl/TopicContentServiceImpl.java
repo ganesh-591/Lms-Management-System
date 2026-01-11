@@ -24,14 +24,17 @@ public class TopicContentServiceImpl implements TopicContentService {
     private final TopicRepository topicRepository;
 
     // ===============================
-    // CREATE SINGLE CONTENT
+    // 1️⃣ CREATE SINGLE CONTENT (JSON)
+    // fileUrl = null allowed
     // ===============================
     @Override
     public TopicContent createContent(Long topicId, TopicContent content) {
 
         Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Topic not found with id: " + topicId)
+                        new ResourceNotFoundException(
+                                "Topic not found with id: " + topicId
+                        )
                 );
 
         content.setTopic(topic);
@@ -39,28 +42,34 @@ public class TopicContentServiceImpl implements TopicContentService {
     }
 
     // ===============================
-    // CREATE CONTENT IN BULK
+    // 2️⃣ CREATE CONTENT BULK (JSON)
+    // fileUrl = null allowed
     // ===============================
     @Override
-    public List<TopicContent> createContentBulk(Long topicId, List<TopicContent> contents) {
+    public List<TopicContent> createContentBulk(
+            Long topicId,
+            List<TopicContent> contents
+    ) {
 
         Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Topic not found with id: " + topicId)
+                        new ResourceNotFoundException(
+                                "Topic not found with id: " + topicId
+                        )
                 );
 
-        List<TopicContent> savedContents = new ArrayList<>();
+        List<TopicContent> saved = new ArrayList<>();
 
         for (TopicContent content : contents) {
             content.setTopic(topic);
-            savedContents.add(topicContentRepository.save(content));
+            saved.add(topicContentRepository.save(content));
         }
 
-        return savedContents;
+        return saved;
     }
 
     // ===============================
-    // GET CONTENT BY ID
+    // 3️⃣ GET CONTENT BY ID
     // ===============================
     @Override
     @Transactional(readOnly = true)
@@ -68,12 +77,14 @@ public class TopicContentServiceImpl implements TopicContentService {
 
         return topicContentRepository.findById(contentId)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Content not found with id: " + contentId)
+                        new ResourceNotFoundException(
+                                "Content not found with id: " + contentId
+                        )
                 );
     }
 
     // ===============================
-    // GET CONTENTS BY TOPIC ID
+    // 4️⃣ GET CONTENTS BY TOPIC
     // ===============================
     @Override
     @Transactional(readOnly = true)
@@ -83,46 +94,57 @@ public class TopicContentServiceImpl implements TopicContentService {
     }
 
     // ===============================
-    // GET ALL CONTENTS
+    // 5️⃣ GET ALL CONTENTS
     // ===============================
     @Override
     @Transactional(readOnly = true)
     public List<TopicContent> getAllContents() {
+
         return topicContentRepository.findAll();
     }
 
     // ===============================
-    // UPDATE CONTENT (PATCH STYLE)
+    // 6️⃣ UPDATE CONTENT (PUT AS PATCH)
+    // 🔒 Used by FILE UPLOAD API
     // ===============================
     @Override
-    public TopicContent updateContent(Long contentId, TopicContent incoming) {
+    public TopicContent updateContent(
+            Long contentId,
+            TopicContent incoming
+    ) {
 
         TopicContent existing = topicContentRepository.findById(contentId)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Content not found with id: " + contentId)
+                        new ResourceNotFoundException(
+                                "Content not found with id: " + contentId
+                        )
                 );
 
+        // ✅ normal metadata update
         if (incoming.getContentType() != null)
             existing.setContentType(incoming.getContentType());
 
-        if (incoming.getFileUrl() != null)
-            existing.setFileUrl(incoming.getFileUrl());
-
         if (incoming.getContentOrder() != null)
             existing.setContentOrder(incoming.getContentOrder());
+
+        // ✅ FILE UPLOAD UPDATE (MAIN POINT)
+        if (incoming.getFileUrl() != null)
+            existing.setFileUrl(incoming.getFileUrl());
 
         return topicContentRepository.save(existing);
     }
 
     // ===============================
-    // DELETE CONTENT
+    // 7️⃣ DELETE CONTENT
     // ===============================
     @Override
     public void deleteContent(Long contentId) {
 
         TopicContent existing = topicContentRepository.findById(contentId)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Content not found with id: " + contentId)
+                        new ResourceNotFoundException(
+                                "Content not found with id: " + contentId
+                        )
                 );
 
         topicContentRepository.delete(existing);

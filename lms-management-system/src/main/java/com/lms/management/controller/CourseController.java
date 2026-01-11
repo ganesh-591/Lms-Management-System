@@ -3,22 +3,18 @@ package com.lms.management.controller;
 import java.io.IOException;
 import java.util.List;
 
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
 import org.springframework.web.multipart.MultipartFile;
 
 import com.lms.management.exception.ResourceNotFoundException;
 import com.lms.management.exception.UnauthorizedAccessException;
 import com.lms.management.model.Course;
+import com.lms.management.model.Topic;
+import com.lms.management.model.TopicContent;
 import com.lms.management.repository.CourseRepository;
+import com.lms.management.repository.TopicContentRepository;
+import com.lms.management.repository.TopicRepository;
 import com.lms.management.service.CourseService;
 import com.lms.management.util.FileUploadUtil;
 
@@ -29,13 +25,19 @@ public class CourseController {
 
     private final CourseService courseService;
     private final CourseRepository courseRepository;
+    private final TopicRepository topicRepository;
+    private final TopicContentRepository topicContentRepository;
 
     public CourseController(
             CourseService courseService,
-            CourseRepository courseRepository
+            CourseRepository courseRepository,
+            TopicRepository topicRepository,
+            TopicContentRepository topicContentRepository
     ) {
         this.courseService = courseService;
         this.courseRepository = courseRepository;
+        this.topicRepository = topicRepository;
+        this.topicContentRepository = topicContentRepository;
     }
 
     // ===============================
@@ -107,7 +109,8 @@ public class CourseController {
     }
 
     // ===============================
-    // 🔗 SHARE COURSE (PUBLIC)
+    // 🔗 SHARE COURSE (PUBLIC API)
+    // RETURNS COURSE + TOPICS + CONTENTS
     // ===============================
     @GetMapping("/share/{shareCode}")
     public Course shareCourse(@PathVariable String shareCode) {
@@ -129,7 +132,20 @@ public class CourseController {
             throw new UnauthorizedAccessException("Content access disabled");
         }
 
-        // ✅ NO topics attached here (by design)
-        return courseService.getCourseById(course.getCourseId());
+        // 🔥 LOAD TOPICS
+        List<Topic> topics =
+                topicRepository.findByCourseCourseId(course.getCourseId());
+
+        // 🔥 LOAD CONTENTS FOR EACH TOPIC
+        for (Topic topic : topics) {
+            List<TopicContent> contents =
+                    topicContentRepository.findByTopicTopicId(topic.getTopicId());
+            topic.setContents(contents);
+        }
+
+        // 🔥 ATTACH TO COURSE (TRANSIENT FIELD)
+        course.setTopics(topics);
+
+        return course;
     }
 }

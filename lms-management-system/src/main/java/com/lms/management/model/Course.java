@@ -1,6 +1,7 @@
 package com.lms.management.model;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -67,6 +68,8 @@ public class Course {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
+    @Transient
+    private List<Topic> topics;
 
     @PreUpdate
     protected void onUpdate() {

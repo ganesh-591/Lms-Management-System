@@ -1,13 +1,16 @@
 package com.lms.management.controller;
 
+import java.io.IOException;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.lms.management.model.TopicContent;
 import com.lms.management.service.TopicContentService;
+import com.lms.management.util.FileUploadUtil;
 
 import lombok.RequiredArgsConstructor;
 
@@ -19,19 +22,21 @@ public class TopicContentController {
     private final TopicContentService topicContentService;
 
     // ===============================
-    // CREATE SINGLE CONTENT
+    // 1️⃣ CREATE SINGLE CONTENT (JSON)
     // ===============================
     @PostMapping("/topic/{topicId}")
     public ResponseEntity<TopicContent> createContent(
             @PathVariable Long topicId,
             @RequestBody TopicContent content) {
 
-        TopicContent created = topicContentService.createContent(topicId, content);
+        TopicContent created =
+                topicContentService.createContent(topicId, content);
+
         return new ResponseEntity<>(created, HttpStatus.CREATED);
     }
 
     // ===============================
-    // CREATE CONTENT IN BULK
+    // 2️⃣ CREATE CONTENT BULK (JSON)
     // ===============================
     @PostMapping("/topic/{topicId}/bulk")
     public ResponseEntity<List<TopicContent>> createContentBulk(
@@ -45,17 +50,41 @@ public class TopicContentController {
     }
 
     // ===============================
-    // ✅ UPDATE CONTENT (THIS WAS MISSING)
+    // 3️⃣ UPLOAD FILES (PUT)
     // ===============================
-    @PutMapping("/{contentId}")
-    public ResponseEntity<TopicContent> updateContent(
-            @PathVariable Long contentId,
-            @RequestBody TopicContent content) {
+    @PutMapping("/upload")
+    public ResponseEntity<String> uploadContentFiles(
+            @RequestParam("contentIds") List<Long> contentIds,
+            @RequestParam("files") List<MultipartFile> files
+    ) throws IOException {
 
-        TopicContent updated =
-                topicContentService.updateContent(contentId, content);
+        if (contentIds.size() != files.size()) {
+            return ResponseEntity.badRequest()
+                    .body("Files count must match contentIds count");
+        }
 
-        return ResponseEntity.ok(updated);
+        for (int i = 0; i < contentIds.size(); i++) {
+
+            String fileUrl =
+                    FileUploadUtil.saveTopicContentFile(files.get(i));
+
+            TopicContent update = new TopicContent();
+            update.setFileUrl(fileUrl);
+
+            topicContentService.updateContent(contentIds.get(i), update);
+        }
+
+        return ResponseEntity.ok("Files uploaded successfully");
+    }
+
+    // ===============================
+    // ✅ GET ALL CONTENTS (FIX)
+    // ===============================
+    @GetMapping
+    public ResponseEntity<List<TopicContent>> getAllContents() {
+        return ResponseEntity.ok(
+                topicContentService.getAllContents()
+        );
     }
 
     // ===============================
@@ -80,14 +109,6 @@ public class TopicContentController {
         return ResponseEntity.ok(
                 topicContentService.getContentsByTopicId(topicId)
         );
-    }
-
-    // ===============================
-    // GET ALL CONTENTS
-    // ===============================
-    @GetMapping
-    public ResponseEntity<List<TopicContent>> getAllContents() {
-        return ResponseEntity.ok(topicContentService.getAllContents());
     }
 
     // ===============================

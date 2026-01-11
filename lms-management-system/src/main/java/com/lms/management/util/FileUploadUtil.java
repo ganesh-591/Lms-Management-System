@@ -9,7 +9,11 @@ import org.springframework.web.multipart.MultipartFile;
 public class FileUploadUtil {
 
     private static final String UPLOAD_DIR = "uploads/courses";
+    private static final String CONTENT_UPLOAD_DIR = "uploads/topic-contents";
 
+    // ===============================
+    // COURSE IMAGE UPLOAD (EXISTING)
+    // ===============================
     public static String saveCourseImage(MultipartFile file) throws IOException {
 
         if (file == null || file.isEmpty()) {
@@ -34,5 +38,34 @@ public class FileUploadUtil {
         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
         return "/uploads/courses/" + fileName;
+    }
+
+    // ===============================
+    // TOPIC CONTENT FILE UPLOAD (NEW)
+    // ===============================
+    public static String saveTopicContentFile(MultipartFile file) throws IOException {
+
+        if (file == null || file.isEmpty()) {
+            return null;
+        }
+
+        Path uploadPath = Paths.get(CONTENT_UPLOAD_DIR);
+        if (!Files.exists(uploadPath)) {
+            Files.createDirectories(uploadPath);
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        String extension = "";
+
+        if (originalFilename != null && originalFilename.contains(".")) {
+            extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+        }
+
+        String fileName = UUID.randomUUID() + extension;
+        Path filePath = uploadPath.resolve(fileName);
+
+        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+        return "/uploads/topic-contents/" + fileName;
     }
 }

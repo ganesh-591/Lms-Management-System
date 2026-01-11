@@ -4,7 +4,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -25,17 +24,15 @@ public class Topic {
     private String topicDescription;
     private String status;
 
-    // 🔗 Relation to Course (NOT exposed in API)
+    // 🔗 Relation to Course (hidden)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "course_id", nullable = false)
     @JsonIgnore
     private Course course;
 
-    // ❌ NOT stored in DB
-    // ❌ NOT shown in normal APIs
-    // ✅ Used ONLY in share API (manually set)
+    // ✅ Runtime-only
+    // ✅ Visible in SHARE API
     @Transient
-    @JsonIgnore
     private List<TopicContent> contents;
 
     private LocalDateTime createdAt;

@@ -21,9 +21,17 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
+
+                // ✅ PUBLIC: uploaded images
+                .requestMatchers("/uploads/**").permitAll()
+
+                // ✅ PUBLIC: shared course link
+                .requestMatchers("/api/courses/share/**").permitAll()
+
+                // 🔐 EVERYTHING ELSE NEEDS JWT
                 .anyRequest().authenticated()
             )
-            // 🔑 THIS LINE IS THE FIX
+            // JWT FILTER (UNCHANGED)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
