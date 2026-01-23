@@ -1,7 +1,14 @@
 package com.lms.management.service.impl;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.lms.management.exception.ResourceNotFoundException;
 import com.lms.management.model.AttendanceSession;
@@ -28,11 +35,11 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
             Long userId
     ) {
 
-        // prevent duplicate ACTIVE attendance
         attendanceSessionRepository
                 .findBySessionIdAndStatus(sessionId, "ACTIVE")
                 .ifPresent(a -> {
-                    throw new IllegalStateException(
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
                             "Attendance already started for this session"
                     );
                 });
@@ -42,6 +49,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         attendanceSession.setCourseId(courseId);
         attendanceSession.setBatchId(batchId);
         attendanceSession.setCreatedBy(userId);
+        attendanceSession.setStartedAt(LocalDateTime.now());
+        attendanceSession.setStatus("ACTIVE");
 
         return attendanceSessionRepository.save(attendanceSession);
     }
@@ -61,7 +70,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                         );
 
         attendanceSession.setStatus("ENDED");
-        attendanceSession.setEndedAt(java.time.LocalDateTime.now());
+        attendanceSession.setEndedAt(LocalDateTime.now());
 
         return attendanceSessionRepository.save(attendanceSession);
     }
@@ -95,5 +104,36 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                                 "No active attendance for this session"
                         )
                 );
+    }
+
+    // ===============================
+    // GET BY DATE
+    // ===============================
+    @Override
+    @Transactional(readOnly = true)
+    public List<AttendanceSession> getByDate(LocalDate date) {
+
+        LocalDateTime start = date.atStartOfDay();
+        LocalDateTime end = date.atTime(LocalTime.MAX);
+
+        return attendanceSessionRepository
+                .findByStartedAtBetween(start, end);
+    }
+
+    // ===============================
+    // DELETE
+    // ===============================
+    @Override
+    public void delete(Long attendanceSessionId) {
+
+        AttendanceSession session =
+                attendanceSessionRepository.findById(attendanceSessionId)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Attendance session not found"
+                                )
+                        );
+
+        attendanceSessionRepository.delete(session);
     }
 }

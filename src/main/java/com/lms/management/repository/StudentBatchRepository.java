@@ -18,4 +18,17 @@ public interface StudentBatchRepository
             Long studentId,
             String status
     );
+
+    // 🔒 Validation checks
+    boolean existsByStudentIdAndBatchIdAndStatus(
+            Long studentId,
+            Long batchId,
+            String status
+    );
+
+    boolean existsByStudentIdAndCourseIdAndStatus(
+            Long studentId,
+            Long courseId,
+            String status
+    );
 }

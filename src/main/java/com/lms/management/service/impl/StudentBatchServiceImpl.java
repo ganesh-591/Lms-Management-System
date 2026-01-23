@@ -28,6 +28,24 @@ public class StudentBatchServiceImpl implements StudentBatchService {
             Long courseId,
             Long batchId) {
 
+        // ❗ Block duplicate ACTIVE in same batch
+        if (studentBatchRepository
+                .existsByStudentIdAndBatchIdAndStatus(
+                        studentId, batchId, "ACTIVE")) {
+
+            throw new IllegalStateException(
+                    "Student is already active in this batch");
+        }
+
+        // ❗ Block multiple ACTIVE batches for same course
+        if (studentBatchRepository
+                .existsByStudentIdAndCourseIdAndStatus(
+                        studentId, courseId, "ACTIVE")) {
+
+            throw new IllegalStateException(
+                    "Student already has an active batch for this course");
+        }
+
         StudentBatch studentBatch = new StudentBatch();
         studentBatch.setStudentId(studentId);
         studentBatch.setStudentName(studentName);
@@ -53,17 +71,12 @@ public class StudentBatchServiceImpl implements StudentBatchService {
             existing.setStatus(updated.getStatus());
         }
 
-        if (updated.getBatchId() != null) {
-            existing.setBatchId(updated.getBatchId());
-        }
-
         return studentBatchRepository.save(existing);
     }
 
     // ================= VIEW BY BATCH =================
     @Override
     public List<StudentBatch> getStudentsByBatch(Long batchId) {
-
         return studentBatchRepository.findByBatchId(batchId);
     }
 

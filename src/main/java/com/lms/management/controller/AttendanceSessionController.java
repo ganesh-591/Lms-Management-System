@@ -1,5 +1,9 @@
 package com.lms.management.controller;
 
+import java.time.LocalDate;
+import java.util.List;
+
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,10 +25,10 @@ public class AttendanceSessionController {
     @PostMapping("/start")
     @PreAuthorize("hasAuthority('ATTENDANCE_START')")
     public AttendanceSession startAttendance(
-            @RequestParam Long sessionId,
-            @RequestParam Long courseId,
-            @RequestParam Long batchId,
-            @RequestParam Long userId
+            @RequestParam(name = "sessionId") Long sessionId,
+            @RequestParam(name = "courseId") Long courseId,
+            @RequestParam(name = "batchId") Long batchId,
+            @RequestParam(name = "userId") Long userId
     ) {
         return attendanceSessionService.startAttendance(
                 sessionId,
@@ -65,5 +69,29 @@ public class AttendanceSessionController {
             @PathVariable Long sessionId
     ) {
         return attendanceSessionService.getActiveBySessionId(sessionId);
+    }
+
+    // ===============================
+    // ✅ GET BY DATE (PATH VARIABLE)
+    // ===============================
+    @GetMapping("/date/{date}")
+    @PreAuthorize("hasAuthority('ATTENDANCE_VIEW')")
+    public List<AttendanceSession> getByDate(
+            @PathVariable
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate date
+    ) {
+        return attendanceSessionService.getByDate(date);
+    }
+
+    // ===============================
+    // DELETE ATTENDANCE SESSION
+    // ===============================
+    @DeleteMapping("/{attendanceSessionId}")
+    @PreAuthorize("hasAuthority('ATTENDANCE_DELETE')")
+    public void deleteAttendanceSession(
+            @PathVariable Long attendanceSessionId
+    ) {
+        attendanceSessionService.delete(attendanceSessionId);
     }
 }

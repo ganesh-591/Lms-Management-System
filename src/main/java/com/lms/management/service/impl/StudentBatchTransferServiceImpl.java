@@ -33,7 +33,6 @@ public class StudentBatchTransferServiceImpl
             String reason,
             String transferredBy) {
 
-        // 1️⃣ Find ACTIVE batch of student
         StudentBatch activeBatch =
                 studentBatchRepository
                         .findFirstByStudentIdAndStatus(studentId, "ACTIVE")
@@ -43,23 +42,26 @@ public class StudentBatchTransferServiceImpl
 
         Long fromBatchId = activeBatch.getBatchId();
 
-        // 2️⃣ BLOCK same-batch transfer ❗
+        // ❗ Block same batch transfer
         if (fromBatchId.equals(toBatchId)) {
             throw new IllegalStateException(
                     "Source batch and target batch cannot be the same");
         }
 
-        // 3️⃣ Ensure course matches
-        if (!activeBatch.getCourseId().equals(courseId)) {
+        // ❗ Block duplicate ACTIVE in target batch
+        if (studentBatchRepository
+                .existsByStudentIdAndBatchIdAndStatus(
+                        studentId, toBatchId, "ACTIVE")) {
+
             throw new IllegalStateException(
-                    "Student does not belong to this course");
+                    "Student is already active in target batch");
         }
 
-        // 4️⃣ Close old enrollment
+        // Close old enrollment
         activeBatch.setStatus("TRANSFERRED");
         studentBatchRepository.save(activeBatch);
 
-        // 5️⃣ Create NEW active enrollment
+        // Create new ACTIVE enrollment
         StudentBatch newBatch = new StudentBatch();
         newBatch.setStudentId(studentId);
         newBatch.setStudentName(activeBatch.getStudentName());
@@ -70,7 +72,7 @@ public class StudentBatchTransferServiceImpl
 
         studentBatchRepository.save(newBatch);
 
-        // 6️⃣ Save transfer history
+        // Save transfer history
         StudentBatchTransfer transfer = new StudentBatchTransfer();
         transfer.setStudentId(studentId);
         transfer.setCourseId(courseId);
@@ -86,14 +88,12 @@ public class StudentBatchTransferServiceImpl
     // ================= VIEW BY STUDENT =================
     @Override
     public List<StudentBatchTransfer> getTransfersByStudent(Long studentId) {
-
         return transferRepository.findByStudentId(studentId);
     }
 
     // ================= VIEW BY COURSE =================
     @Override
     public List<StudentBatchTransfer> getTransfersByCourse(Long courseId) {
-
         return transferRepository.findByCourseId(courseId);
     }
 }
