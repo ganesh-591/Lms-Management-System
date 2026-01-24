@@ -31,8 +31,17 @@ public interface AttendanceSessionRepository
     List<AttendanceSession> findByDate(
             @Param("date") LocalDate date
     );
+
     List<AttendanceSession> findByStartedAtBetween(
             LocalDateTime start,
             LocalDateTime end
+    );
+
+    // ===============================
+    // ➕ ADDON (ENDED + ACTIVE TOGETHER)
+    // ===============================
+    List<AttendanceSession> findBySessionIdAndStatusInOrderByStartedAtDesc(
+            Long sessionId,
+            List<String> statuses
     );
 }

@@ -25,10 +25,10 @@ public class AttendanceSessionController {
     @PostMapping("/start")
     @PreAuthorize("hasAuthority('ATTENDANCE_START')")
     public AttendanceSession startAttendance(
-            @RequestParam(name = "sessionId") Long sessionId,
-            @RequestParam(name = "courseId") Long courseId,
-            @RequestParam(name = "batchId") Long batchId,
-            @RequestParam(name = "userId") Long userId
+            @RequestParam Long sessionId,
+            @RequestParam Long courseId,
+            @RequestParam Long batchId,
+            @RequestParam Long userId
     ) {
         return attendanceSessionService.startAttendance(
                 sessionId,
@@ -61,7 +61,7 @@ public class AttendanceSessionController {
     }
 
     // ===============================
-    // GET ACTIVE BY SESSION
+    // GET ACTIVE ONLY (LEGACY)
     // ===============================
     @GetMapping("/active/{sessionId}")
     @PreAuthorize("hasAuthority('ATTENDANCE_VIEW')")
@@ -72,7 +72,18 @@ public class AttendanceSessionController {
     }
 
     // ===============================
-    // ✅ GET BY DATE (PATH VARIABLE)
+    // ✅ GET ACTIVE + ENDED (SINGLE API)
+    // ===============================
+    @GetMapping("/session/{sessionId}/all")
+    @PreAuthorize("hasAuthority('ATTENDANCE_VIEW')")
+    public List<AttendanceSession> getActiveAndEndedBySession(
+            @PathVariable Long sessionId
+    ) {
+        return attendanceSessionService.getActiveAndEndedBySessionId(sessionId);
+    }
+
+    // ===============================
+    // GET BY DATE
     // ===============================
     @GetMapping("/date/{date}")
     @PreAuthorize("hasAuthority('ATTENDANCE_VIEW')")
@@ -85,7 +96,7 @@ public class AttendanceSessionController {
     }
 
     // ===============================
-    // DELETE ATTENDANCE SESSION
+    // DELETE
     // ===============================
     @DeleteMapping("/{attendanceSessionId}")
     @PreAuthorize("hasAuthority('ATTENDANCE_DELETE')")

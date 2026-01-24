@@ -1,7 +1,9 @@
 package com.lms.management.controller;
 
+import java.time.LocalDate;
 import java.util.List;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,7 +31,7 @@ public class AttendanceRecordController {
     }
 
     // ===============================
-    // ✅ MARK ATTENDANCE (BULK)
+    // MARK ATTENDANCE (BULK)
     // ===============================
     @PostMapping("/bulk")
     @PreAuthorize("hasAuthority('ATTENDANCE_RECORD_CREATE')")
@@ -40,7 +42,7 @@ public class AttendanceRecordController {
     }
 
     // ===============================
-    // UPDATE ATTENDANCE (PUT = PATCH)
+    // UPDATE ATTENDANCE (PUT)
     // ===============================
     @PutMapping("/{attendanceRecordId}")
     @PreAuthorize("hasAuthority('ATTENDANCE_RECORD_UPDATE')")
@@ -68,10 +70,40 @@ public class AttendanceRecordController {
     }
 
     // ===============================
-    // STUDENT SELF VIEW
+    // GET BY DATE (DASHBOARD / REPORTS)
+    // ===============================
+    @GetMapping("/date/{date}")
+    @PreAuthorize("hasAuthority('ATTENDANCE_RECORD_VIEW')")
+    public List<AttendanceRecord> getByDate(
+            @PathVariable
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate date
+    ) {
+        return attendanceRecordService.getByDate(date);
+    }
+
+    // ===============================
+    // GET BY SESSION + DATE (REPORTS)
+    // ===============================
+    @GetMapping("/session/{attendanceSessionId}/date/{date}")
+    @PreAuthorize("hasAuthority('ATTENDANCE_RECORD_VIEW')")
+    public List<AttendanceRecord> getBySessionAndDate(
+            @PathVariable Long attendanceSessionId,
+            @PathVariable
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate date
+    ) {
+        return attendanceRecordService.getBySessionAndDate(
+                attendanceSessionId,
+                date
+        );
+    }
+
+    // ===============================
+    // ADMIN / INSTRUCTOR VIEW BY STUDENT
     // ===============================
     @GetMapping("/student/{studentId}")
-    @PreAuthorize("hasAuthority('ATTENDANCE_RECORD_SELF_VIEW')")
+    @PreAuthorize("hasAuthority('ATTENDANCE_RECORD_VIEW')")
     public List<AttendanceRecord> getByStudent(
             @PathVariable Long studentId
     ) {

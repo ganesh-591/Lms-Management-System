@@ -1,5 +1,6 @@
 package com.lms.management.model;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -32,7 +33,7 @@ public class AttendanceRecord {
     @Column(name = "student_name", nullable = false)
     private String studentName;
 
-    // PRESENT / ABSENT / LATE / EXCUSED
+    // PRESENT / ABSENT / LATE / EXCUSED / PARTIAL
     @Column(nullable = false)
     private String status;
 
@@ -45,6 +46,10 @@ public class AttendanceRecord {
     @Column(name = "marked_at", nullable = false)
     private LocalDateTime markedAt;
 
+    // ✅ REQUIRED FOR REPORTS & UI DATE FILTER
+    @Column(name = "attendance_date", nullable = false)
+    private LocalDate attendanceDate;
+
     // MANUAL / CSV / OFFLINE
     @Column(nullable = false)
     private String source;
@@ -52,5 +57,10 @@ public class AttendanceRecord {
     @PrePersist
     protected void onCreate() {
         this.markedAt = LocalDateTime.now();
+
+        // Auto-set attendance date if not provided
+        if (this.attendanceDate == null) {
+            this.attendanceDate = LocalDate.now();
+        }
     }
 }

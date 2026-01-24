@@ -12,7 +12,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.lms.management.exception.ResourceNotFoundException;
 import com.lms.management.model.AttendanceSession;
+import com.lms.management.model.Session;
 import com.lms.management.repository.AttendanceSessionRepository;
+import com.lms.management.repository.SessionRepository;
 import com.lms.management.service.AttendanceSessionService;
 
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 public class AttendanceSessionServiceImpl implements AttendanceSessionService {
 
     private final AttendanceSessionRepository attendanceSessionRepository;
+    private final SessionRepository sessionRepository;
 
     // ===============================
     // START ATTENDANCE
@@ -34,6 +37,18 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
             Long batchId,
             Long userId
     ) {
+
+        Session session = sessionRepository.findById(sessionId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Session not found")
+                );
+
+        if (!session.getBatchId().equals(batchId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Session does not belong to this batch"
+            );
+        }
 
         attendanceSessionRepository
                 .findBySessionIdAndStatus(sessionId, "ACTIVE")
@@ -104,6 +119,22 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                                 "No active attendance for this session"
                         )
                 );
+    }
+
+    // ===============================
+    // ✅ GET ACTIVE + ENDED (SINGLE API SUPPORT)
+    // ===============================
+    @Override
+    @Transactional(readOnly = true)
+    public List<AttendanceSession> getActiveAndEndedBySessionId(Long sessionId) {
+
+        return attendanceSessionRepository.findAll().stream()
+                .filter(a ->
+                        a.getSessionId().equals(sessionId) &&
+                        (a.getStatus().equals("ACTIVE")
+                                || a.getStatus().equals("ENDED"))
+                )
+                .toList();
     }
 
     // ===============================

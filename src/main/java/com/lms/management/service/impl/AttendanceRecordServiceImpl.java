@@ -1,5 +1,6 @@
 package com.lms.management.service.impl;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,28 +31,24 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
     // ===============================
     @Override
     public AttendanceRecord markAttendance(AttendanceRecord record) {
-
         validateAttendance(record);
-
         return attendanceRecordRepository.save(record);
     }
 
     // ===============================
-    // ✅ MARK ATTENDANCE (BULK)
+    // MARK ATTENDANCE (BULK)
     // ===============================
     @Override
-    public List<AttendanceRecord> markAttendanceBulk(
-            List<AttendanceRecord> records
-    ) {
+    public List<AttendanceRecord> markAttendanceBulk(List<AttendanceRecord> records) {
 
-        List<AttendanceRecord> savedRecords = new ArrayList<>();
+        List<AttendanceRecord> saved = new ArrayList<>();
 
         for (AttendanceRecord record : records) {
             validateAttendance(record);
-            savedRecords.add(attendanceRecordRepository.save(record));
+            saved.add(attendanceRecordRepository.save(record));
         }
 
-        return savedRecords;
+        return saved;
     }
 
     // ===============================
@@ -59,7 +56,6 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
     // ===============================
     private void validateAttendance(AttendanceRecord record) {
 
-        // 1️⃣ Check attendance session exists
         AttendanceSession session =
                 attendanceSessionRepository.findById(
                         record.getAttendanceSessionId()
@@ -69,7 +65,6 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
                         )
                 );
 
-        // 2️⃣ Validate student belongs to batch
         boolean isEnrolled =
                 studentBatchRepository.existsByStudentIdAndBatchIdAndStatus(
                         record.getStudentId(),
@@ -83,7 +78,6 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
             );
         }
 
-        // 3️⃣ Prevent duplicate attendance
         attendanceRecordRepository
                 .findByAttendanceSessionIdAndStudentId(
                         record.getAttendanceSessionId(),
@@ -97,7 +91,7 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
     }
 
     // ===============================
-    // UPDATE ATTENDANCE
+    // UPDATE ATTENDANCE (PUT)
     // ===============================
     @Override
     public AttendanceRecord updateAttendance(
@@ -113,6 +107,7 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
                                 )
                         );
 
+        // PUT = replace only allowed fields
         if (incoming.getStatus() != null)
             existing.setStatus(incoming.getStatus());
 
@@ -130,18 +125,41 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
     public List<AttendanceRecord> getByAttendanceSession(
             Long attendanceSessionId
     ) {
-
         return attendanceRecordRepository
                 .findByAttendanceSessionId(attendanceSessionId);
     }
 
     // ===============================
-    // STUDENT SELF VIEW
+    // GET BY DATE (DASHBOARD / REPORTS)
+    // ===============================
+    @Override
+    @Transactional(readOnly = true)
+    public List<AttendanceRecord> getByDate(LocalDate date) {
+        return attendanceRecordRepository.findByAttendanceDate(date);
+    }
+
+    // ===============================
+    // GET BY SESSION + DATE
+    // ===============================
+    @Override
+    @Transactional(readOnly = true)
+    public List<AttendanceRecord> getBySessionAndDate(
+            Long attendanceSessionId,
+            LocalDate date
+    ) {
+        return attendanceRecordRepository
+                .findByAttendanceSessionIdAndAttendanceDate(
+                        attendanceSessionId,
+                        date
+                );
+    }
+
+    // ===============================
+    // STUDENT SELF / ADMIN VIEW
     // ===============================
     @Override
     @Transactional(readOnly = true)
     public List<AttendanceRecord> getByStudent(Long studentId) {
-
         return attendanceRecordRepository.findByStudentId(studentId);
     }
 

@@ -28,6 +28,9 @@ public class Session {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "session_id")
     private Long sessionId;
+    
+    @Column(name = "course_id", nullable = false)
+    private Long courseId;
 
     @Column(name = "batch_id", nullable = false)
     private Long batchId;
