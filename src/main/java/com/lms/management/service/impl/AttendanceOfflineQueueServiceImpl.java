@@ -1,12 +1,12 @@
 package com.lms.management.service.impl;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.lms.management.exception.ResourceNotFoundException;
 import com.lms.management.model.AttendanceOfflineQueue;
 import com.lms.management.model.AttendanceRecord;
 import com.lms.management.repository.AttendanceOfflineQueueRepository;
@@ -17,54 +17,69 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-public class AttendanceOfflineQueueServiceImpl implements AttendanceOfflineQueueService {
+@Transactional
+public class AttendanceOfflineQueueServiceImpl
+        implements AttendanceOfflineQueueService {
 
     private final AttendanceOfflineQueueRepository offlineQueueRepository;
     private final AttendanceRecordRepository attendanceRecordRepository;
 
+    // ===============================
+    // STORE OFFLINE ATTENDANCE
+    // ===============================
     @Override
-    public List<AttendanceOfflineQueue> getPendingOfflineRecords() {
-        return offlineQueueRepository.findBySyncedFalse();
+    public AttendanceOfflineQueue save(AttendanceOfflineQueue queue) {
+        queue.setQueuedAt(LocalDateTime.now());
+        queue.setSynced(false);
+        return offlineQueueRepository.save(queue);
     }
 
+    // ===============================
+    // VIEW OFFLINE QUEUE BY BATCH
+    // ===============================
     @Override
-    @Transactional
-    public void syncOfflineAttendance(Long syncedByUserId) {
+    @Transactional(readOnly = true)
+    public List<AttendanceOfflineQueue> getByBatch(Long batchId) {
+        return offlineQueueRepository.findByBatchIdAndSyncedFalse(batchId);
+    }
 
-        List<AttendanceOfflineQueue> pendingRecords =
+    // ===============================
+    // SYNC OFFLINE → ATTENDANCE RECORD
+    // ===============================
+    @Override
+    public void sync() {
+
+        List<AttendanceOfflineQueue> pending =
                 offlineQueueRepository.findBySyncedFalse();
 
-        for (AttendanceOfflineQueue offline : pendingRecords) {
-
-            // ✅ Use existing repository method (NO repo change)
-            Optional<AttendanceRecord> existingRecord =
-                    attendanceRecordRepository
-                            .findByAttendanceSessionIdAndStudentId(
-                                    offline.getSessionId(),
-                                    offline.getStudentId()
-                            );
-
-            // If already exists, mark offline record as synced and skip
-            if (existingRecord.isPresent()) {
-                offline.setSynced(true);
-                continue;
-            }
+        for (AttendanceOfflineQueue q : pending) {
 
             AttendanceRecord record = new AttendanceRecord();
-            record.setAttendanceSessionId(offline.getSessionId());
-            record.setStudentId(offline.getStudentId());
-            record.setStudentName(null); // resolved later from student_batch if needed
-            record.setStatus(offline.getStatus());
-            record.setRemarks(offline.getRemarks());
-            record.setMarkedBy(syncedByUserId);
-            record.setAttendanceDate(LocalDate.now());
+            record.setAttendanceSessionId(q.getSessionId());
+            record.setStudentId(q.getStudentId());
+            record.setStatus(q.getStatus());
+            record.setRemarks(q.getRemarks());
+            record.setMarkedBy(0L); // system
             record.setSource("OFFLINE");
 
             attendanceRecordRepository.save(record);
 
-            offline.setSynced(true);
+            q.setSynced(true);
+            offlineQueueRepository.save(q);
         }
+    }
 
-        offlineQueueRepository.saveAll(pendingRecords);
+    // ===============================
+    // DELETE OFFLINE QUEUE RECORD
+    // ===============================
+    @Override
+    public void delete(Long id) {
+        AttendanceOfflineQueue queue =
+                offlineQueueRepository.findById(id)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException("Offline queue not found")
+                        );
+
+        offlineQueueRepository.delete(queue);
     }
 }

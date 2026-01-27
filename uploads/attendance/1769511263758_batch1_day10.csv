@@ -1,0 +1,6 @@
+studentId,status,remarks
+101,PRESENT,
+102,ABSENT,Sick
+103,LATE,Traffic delay
+104,PRESENT,
+105,EXCUSED,Medical leave
