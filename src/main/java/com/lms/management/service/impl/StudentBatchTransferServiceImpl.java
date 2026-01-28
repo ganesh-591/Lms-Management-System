@@ -64,7 +64,6 @@ public class StudentBatchTransferServiceImpl
         // Create new ACTIVE enrollment
         StudentBatch newBatch = new StudentBatch();
         newBatch.setStudentId(studentId);
-        newBatch.setStudentName(activeBatch.getStudentName());
         newBatch.setCourseId(courseId);
         newBatch.setBatchId(toBatchId);
         newBatch.setStatus("ACTIVE");

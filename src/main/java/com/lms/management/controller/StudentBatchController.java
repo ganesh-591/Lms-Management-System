@@ -2,7 +2,8 @@ package com.lms.management.controller;
 
 import java.util.List;
 
-import org.springframework.http.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -23,34 +24,17 @@ public class StudentBatchController {
     // ================= ENROLL =================
     @PostMapping("/enroll")
     public ResponseEntity<StudentBatch> enrollStudent(
-            @RequestParam Long studentId,
-            @RequestParam String studentName,
-            @RequestParam Long courseId,
-            @RequestParam Long batchId) {
+            @RequestBody StudentBatch studentBatch) {
 
         requirePermission("STUDENT_BATCH_CREATE");
 
         return new ResponseEntity<>(
-                studentBatchService.enrollStudent(
-                        studentId, studentName, courseId, batchId),
+                studentBatchService.enrollStudent(studentBatch),
                 HttpStatus.CREATED
         );
     }
 
-    // ================= UPDATE (PUT = PATCH) =================
-    @PutMapping("/{studentBatchId}")
-    public ResponseEntity<StudentBatch> updateEnrollment(
-            @PathVariable Long studentBatchId,
-            @RequestBody StudentBatch updated) {
-
-        requirePermission("STUDENT_BATCH_UPDATE");
-
-        return ResponseEntity.ok(
-                studentBatchService.updateEnrollment(studentBatchId, updated)
-        );
-    }
-
-    // ================= VIEW STUDENTS BY BATCH =================
+    // ================= VIEW BY BATCH =================
     @GetMapping("/batch/{batchId}")
     public ResponseEntity<List<StudentBatch>> getStudentsByBatch(
             @PathVariable Long batchId) {
@@ -62,7 +46,7 @@ public class StudentBatchController {
         );
     }
 
-    // ================= VIEW OWN BATCH =================
+    // ================= VIEW OWN =================
     @GetMapping("/student/{studentId}")
     public ResponseEntity<StudentBatch> getStudentBatch(
             @PathVariable Long studentId) {
@@ -73,18 +57,19 @@ public class StudentBatchController {
                 studentBatchService.getStudentCurrentBatch(studentId)
         );
     }
+    
+    @PutMapping("/{studentBatchId}")
+    public ResponseEntity<StudentBatch> updateEnrollment(
+            @PathVariable Long studentBatchId,
+            @RequestBody StudentBatch updated) {
 
-    // ================= REMOVE =================
-    @DeleteMapping("/{studentBatchId}")
-    public ResponseEntity<Void> removeStudent(
-            @PathVariable Long studentBatchId) {
+        requirePermission("STUDENT_BATCH_UPDATE");
 
-        requirePermission("STUDENT_BATCH_DELETE");
-
-        studentBatchService.removeStudent(studentBatchId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(
+                studentBatchService.updateEnrollment(studentBatchId, updated)
+        );
     }
-
+    
     // ================= PERMISSION CHECK =================
     private void requirePermission(String permission) {
 

@@ -7,7 +7,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.lms.management.exception.ResourceNotFoundException;
+import com.lms.management.model.Batch;
 import com.lms.management.model.Session;
+import com.lms.management.repository.BatchRepository;
 import com.lms.management.repository.SessionRepository;
 import com.lms.management.service.SessionService;
 
@@ -19,13 +21,20 @@ import lombok.RequiredArgsConstructor;
 public class SessionServiceImpl implements SessionService {
 
     private final SessionRepository sessionRepository;
+    private final BatchRepository batchRepository; // ✅ added
 
     // ================= CREATE =================
     @Override
     public Session createSession(Long batchId, Session session) {
 
-        // force-set batchId from URL
+        // 🔹 Load batch (source of truth)
+        Batch batch = batchRepository.findById(batchId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Batch not found"));
+
+        // 🔹 Force-set relations
         session.setBatchId(batchId);
+        session.setCourseId(batch.getCourseId()); // ✅ CRITICAL FIX
 
         return sessionRepository.save(session);
     }
@@ -38,9 +47,7 @@ public class SessionServiceImpl implements SessionService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Session not found"));
 
-        // 🔹 dynamic status calculation
         session.setStatus(calculateStatus(session));
-
         return session;
     }
 
@@ -50,7 +57,6 @@ public class SessionServiceImpl implements SessionService {
 
         List<Session> sessions = sessionRepository.findByBatchId(batchId);
 
-        // 🔹 dynamic status calculation for each session
         sessions.forEach(session ->
                 session.setStatus(calculateStatus(session)));
 
@@ -91,17 +97,13 @@ public class SessionServiceImpl implements SessionService {
             existingSession.setMeetingLink(updatedSession.getMeetingLink());
         }
 
-        // ⚠️ IMPORTANT:
-        // We do NOT allow manual status override
-        // Status is calculated dynamically
-
+        // ❌ Status is NOT manually updated
         return sessionRepository.save(existingSession);
     }
 
     // ================= DELETE =================
     @Override
     public void deleteSession(Long sessionId) {
-
         Session session = getSessionById(sessionId);
         sessionRepository.delete(session);
     }

@@ -7,7 +7,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.lms.management.exception.ResourceNotFoundException;
+import com.lms.management.model.Batch;
 import com.lms.management.model.StudentBatch;
+import com.lms.management.repository.BatchRepository;
 import com.lms.management.repository.StudentBatchRepository;
 import com.lms.management.service.StudentBatchService;
 
@@ -19,53 +21,66 @@ import lombok.RequiredArgsConstructor;
 public class StudentBatchServiceImpl implements StudentBatchService {
 
     private final StudentBatchRepository studentBatchRepository;
+    private final BatchRepository batchRepository;
 
     // ================= ENROLL =================
     @Override
-    public StudentBatch enrollStudent(
-            Long studentId,
-            String studentName,
-            Long courseId,
-            Long batchId) {
+    public StudentBatch enrollStudent(StudentBatch studentBatch) {
 
-        // ❗ Block duplicate ACTIVE in same batch
+        Long studentId = studentBatch.getStudentId();
+        Long courseId  = studentBatch.getCourseId();
+        Long batchId   = studentBatch.getBatchId();
+
+        // ❌ Same batch duplicate
         if (studentBatchRepository
                 .existsByStudentIdAndBatchIdAndStatus(
                         studentId, batchId, "ACTIVE")) {
-
             throw new IllegalStateException(
-                    "Student is already active in this batch");
+                    "Student already active in this batch");
         }
 
-        // ❗ Block multiple ACTIVE batches for same course
+        // ❌ Same course multiple active batches
         if (studentBatchRepository
                 .existsByStudentIdAndCourseIdAndStatus(
                         studentId, courseId, "ACTIVE")) {
-
             throw new IllegalStateException(
                     "Student already has an active batch for this course");
         }
 
-        StudentBatch studentBatch = new StudentBatch();
-        studentBatch.setStudentId(studentId);
-        studentBatch.setStudentName(studentName);
-        studentBatch.setCourseId(courseId);
-        studentBatch.setBatchId(batchId);
+        // 🔹 Load batch
+        Batch batch = batchRepository.findById(batchId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Batch not found"));
+
+        // 🔹 Count active students
+        long activeCount =
+                studentBatchRepository
+                        .countByBatchIdAndStatus(batchId, "ACTIVE");
+
+        // 🔹 If batch is full → auto-create new batch
+        if (batch.getMaxStudents() != null
+                && activeCount >= batch.getMaxStudents()) {
+
+            throw new IllegalStateException(
+                "Batch is full. Please create a new batch."
+            );
+        }
+
+        // 🔹 Enroll student into final batch
+        studentBatch.setBatchId(batch.getBatchId());
         studentBatch.setStatus("ACTIVE");
         studentBatch.setJoinedAt(LocalDateTime.now());
 
         return studentBatchRepository.save(studentBatch);
     }
 
-    // ================= UPDATE (PUT = PATCH) =================
+    // ================= UPDATE =================
     @Override
-    public StudentBatch updateEnrollment(
-            Long studentBatchId,
-            StudentBatch updated) {
+    public StudentBatch updateEnrollment(Long studentBatchId, StudentBatch updated) {
 
         StudentBatch existing = studentBatchRepository.findById(studentBatchId)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Student enrollment not found"));
+                        new ResourceNotFoundException("Enrollment not found"));
 
         if (updated.getStatus() != null) {
             existing.setStatus(updated.getStatus());
@@ -83,21 +98,15 @@ public class StudentBatchServiceImpl implements StudentBatchService {
     // ================= VIEW OWN =================
     @Override
     public StudentBatch getStudentCurrentBatch(Long studentId) {
-
         return studentBatchRepository
                 .findFirstByStudentIdAndStatus(studentId, "ACTIVE")
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Active batch not found for student"));
+                        new ResourceNotFoundException("Active batch not found"));
     }
 
     // ================= REMOVE =================
     @Override
     public void removeStudent(Long studentBatchId) {
-
-        StudentBatch existing = studentBatchRepository.findById(studentBatchId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Student enrollment not found"));
-
-        studentBatchRepository.delete(existing);
+        studentBatchRepository.deleteById(studentBatchId);
     }
 }

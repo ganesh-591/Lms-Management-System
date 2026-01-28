@@ -19,4 +19,9 @@ public interface BatchRepository extends JpaRepository<Batch, Long> {
 
     // Used for validations (capacity, duplicates, etc.)
     boolean existsByCourseIdAndBatchName(Long courseId, String batchName);
+    
+    long countByCourseIdAndBatchNameStartingWith(
+            Long courseId,
+            String batchName
+    );
 }

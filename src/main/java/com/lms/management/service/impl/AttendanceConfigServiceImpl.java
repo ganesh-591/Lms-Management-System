@@ -54,7 +54,7 @@ public class AttendanceConfigServiceImpl implements AttendanceConfigService {
     }
 
     // ===============================
-    // UPDATE CONFIG
+    // UPDATE CONFIG (DB-ALIGNED)
     // ===============================
     @Override
     public AttendanceConfig updateConfig(
@@ -70,16 +70,66 @@ public class AttendanceConfigServiceImpl implements AttendanceConfigService {
                                 )
                         );
 
-        // ⬇️ Update all editable fields
-        existing.setAllowLate(updatedConfig.getAllowLate());
-        existing.setLateAfterMinutes(updatedConfig.getLateAfterMinutes());
-        existing.setAllowGraceTime(updatedConfig.getAllowGraceTime());
-        existing.setGraceTimeMinutes(updatedConfig.getGraceTimeMinutes());
-        existing.setAllowManualOverride(updatedConfig.getAllowManualOverride());
-        existing.setAllowPartialAttendance(updatedConfig.getAllowPartialAttendance());
-        existing.setAllowExcused(updatedConfig.getAllowExcused());
-        existing.setRequireRemarksForAbsent(
-                updatedConfig.getRequireRemarksForAbsent()
+        // ===============================
+        // ACADEMIC THRESHOLDS
+        // ===============================
+        existing.setExamEligibilityPercent(
+                updatedConfig.getExamEligibilityPercent()
+        );
+        existing.setAtRiskPercent(
+                updatedConfig.getAtRiskPercent()
+        );
+
+        // ===============================
+        // ATTENDANCE TIMING RULES
+        // ===============================
+        existing.setLateGraceMinutes(
+                updatedConfig.getLateGraceMinutes()
+        );
+        existing.setMinPresenceMinutes(
+                updatedConfig.getMinPresenceMinutes()
+        );
+        existing.setAutoAbsentMinutes(
+                updatedConfig.getAutoAbsentMinutes()
+        );
+
+        // ===============================
+        // EARLY EXIT
+        // ===============================
+        existing.setEarlyExitAction(
+                updatedConfig.getEarlyExitAction()
+        );
+
+        // ===============================
+        // CONTROLS
+        // ===============================
+        existing.setAllowOffline(
+                updatedConfig.getAllowOffline()
+        );
+        existing.setAllowManualOverride(
+                updatedConfig.getAllowManualOverride()
+        );
+        existing.setOneDevicePerSession(
+                updatedConfig.getOneDevicePerSession()
+        );
+        existing.setLogIpAddress(
+                updatedConfig.getLogIpAddress()
+        );
+        existing.setStrictStart(
+                updatedConfig.getStrictStart()
+        );
+        existing.setQrCodeMode(
+                updatedConfig.getQrCodeMode()
+        );
+
+        // ===============================
+        // GRACE & ALERTS
+        // ===============================
+        existing.setGracePeriodMinutes(
+                updatedConfig.getGracePeriodMinutes()
+        );
+        existing.setConsecutiveAbsenceLimit(
+                updatedConfig.getConsecutiveAbsenceLimit()
         );
 
         return attendanceConfigRepository.save(existing);

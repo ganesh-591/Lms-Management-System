@@ -28,47 +28,43 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
 
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final AttendanceSessionRepository attendanceSessionRepository;
-    private final StudentBatchRepository studentBatchRepository;
     private final AttendanceConfigRepository attendanceConfigRepository;
+    private final StudentBatchRepository studentBatchRepository;
 
-    // ===============================
-    // MARK ATTENDANCE (SINGLE)
-    // ===============================
     @Override
     public AttendanceRecord markAttendance(AttendanceRecord record) {
 
         AttendanceSession session = validateAttendance(record);
-        AttendanceConfig config = getConfig(session.getBatchId());
+        AttendanceConfig config =
+                getConfig(session.getCourseId(), session.getBatchId());
 
-        // backend decides status
-        record.setStatus(resolveStatus(session, record, config));
+        applyDefaults(record, session);
+        applyTimeBasedStatus(record, session, config);
+        validateEarlyExitRule(config, record);
 
         return attendanceRecordRepository.save(record);
     }
 
-    // ===============================
-    // MARK ATTENDANCE (BULK)
-    // ===============================
     @Override
     public List<AttendanceRecord> markAttendanceBulk(List<AttendanceRecord> records) {
 
         List<AttendanceRecord> saved = new ArrayList<>();
 
         for (AttendanceRecord record : records) {
-
             AttendanceSession session = validateAttendance(record);
-            AttendanceConfig config = getConfig(session.getBatchId());
+            AttendanceConfig config =
+                    getConfig(session.getCourseId(), session.getBatchId());
 
-            record.setStatus(resolveStatus(session, record, config));
+            applyDefaults(record, session);
+            applyTimeBasedStatus(record, session, config);
+            validateEarlyExitRule(config, record);
+
             saved.add(attendanceRecordRepository.save(record));
         }
 
         return saved;
     }
 
-    // ===============================
-    // COMMON VALIDATION
-    // ===============================
     private AttendanceSession validateAttendance(AttendanceRecord record) {
 
         AttendanceSession session =
@@ -80,14 +76,14 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
                         )
                 );
 
-        boolean isEnrolled =
+        boolean enrolled =
                 studentBatchRepository.existsByStudentIdAndBatchIdAndStatus(
                         record.getStudentId(),
                         session.getBatchId(),
                         "ACTIVE"
                 );
 
-        if (!isEnrolled) {
+        if (!enrolled) {
             throw new IllegalStateException(
                     "Student is not enrolled in this batch"
             );
@@ -104,73 +100,90 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
                     );
                 });
 
-        if (record.getMarkedAt() == null) {
-            record.setMarkedAt(LocalDateTime.now());
-        }
-
-        record.setAttendanceDate(session.getStartedAt().toLocalDate());
-
         return session;
     }
 
     // ===============================
-    // LOAD CONFIG
+    // TIME-BASED STATUS CALCULATION
     // ===============================
-    private AttendanceConfig getConfig(Long batchId) {
-        return attendanceConfigRepository.findByBatchId(batchId)
+    private void applyTimeBasedStatus(
+            AttendanceRecord record,
+            AttendanceSession session,
+            AttendanceConfig config
+    ) {
+
+        LocalDateTime joinTime = record.getMarkedAt();
+        LocalDateTime sessionStart = session.getStartedAt();
+
+        long delayMinutes =
+                Duration.between(sessionStart, joinTime).toMinutes();
+
+        if (delayMinutes <= config.getGracePeriodMinutes()) {
+            record.setStatus("PRESENT");
+            return;
+        }
+
+        if (delayMinutes <= config.getLateGraceMinutes()) {
+            record.setStatus("LATE");
+            return;
+        }
+
+        record.setStatus("ABSENT");
+    }
+
+    // ===============================
+    // EARLY EXIT (PARTIAL)
+    // ===============================
+    private void validateEarlyExitRule(
+            AttendanceConfig config,
+            AttendanceRecord record
+    ) {
+
+        if ("PARTIAL".equals(record.getStatus())) {
+
+            if (!"MARK_PARTIAL".equalsIgnoreCase(
+                    config.getEarlyExitAction())) {
+
+                throw new IllegalStateException(
+                        "Partial attendance is not allowed for this batch"
+                );
+            }
+        }
+    }
+
+    private void applyDefaults(
+            AttendanceRecord record,
+            AttendanceSession session
+    ) {
+
+        if (record.getMarkedAt() == null) {
+            record.setMarkedAt(LocalDateTime.now());
+        }
+
+        if (record.getAttendanceDate() == null) {
+            record.setAttendanceDate(
+                    session.getStartedAt().toLocalDate()
+            );
+        }
+
+        if (record.getSource() == null) {
+            record.setSource("MANUAL");
+        }
+    }
+
+    private AttendanceConfig getConfig(
+            Long courseId,
+            Long batchId
+    ) {
+        return attendanceConfigRepository
+                .findByCourseIdAndBatchId(courseId, batchId)
                 .orElseThrow(() ->
                         new IllegalStateException(
-                                "Attendance config not found for batch"
+                                "Attendance config not found for course & batch"
                         )
                 );
     }
 
-    // ===============================
-    // STATUS DECISION ENGINE 🔥
-    // ===============================
-    private String resolveStatus(
-            AttendanceSession session,
-            AttendanceRecord record,
-            AttendanceConfig config
-    ) {
-
-        LocalDateTime sessionStart = session.getStartedAt();
-        LocalDateTime markedAt = record.getMarkedAt();
-
-        long minutesLate =
-                Duration.between(sessionStart, markedAt).toMinutes();
-
-        // 1️⃣ Grace Time
-        if (Boolean.TRUE.equals(config.getAllowGraceTime())
-                && minutesLate <= config.getGraceTimeMinutes()) {
-            return "PRESENT";
-        }
-
-        // 2️⃣ Late
-        if (Boolean.TRUE.equals(config.getAllowLate())
-                && minutesLate <= config.getLateAfterMinutes()) {
-            return "LATE";
-        }
-
-        // 3️⃣ Partial
-        if (Boolean.TRUE.equals(config.getAllowPartialAttendance())) {
-            return "PARTIAL";
-        }
-
-        // 4️⃣ Absent
-        if (Boolean.TRUE.equals(config.getRequireRemarksForAbsent())
-                && record.getRemarks() == null) {
-            throw new IllegalStateException(
-                    "Remarks required for absent attendance"
-            );
-        }
-
-        return "ABSENT";
-    }
-
-    // ===============================
-    // UPDATE ATTENDANCE (ADMIN ONLY)
-    // ===============================
     @Override
     public AttendanceRecord updateAttendance(
             Long attendanceRecordId,
@@ -185,25 +198,20 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
                                 )
                         );
 
-        if (incoming.getRemarks() != null) {
-            existing.setRemarks(incoming.getRemarks());
-        }
-
-        // status override only if admin
-        if (incoming.getStatus() != null) {
+        if (incoming.getStatus() != null)
             existing.setStatus(incoming.getStatus());
-        }
+
+        if (incoming.getRemarks() != null)
+            existing.setRemarks(incoming.getRemarks());
 
         return attendanceRecordRepository.save(existing);
     }
 
-    // ===============================
-    // GET APIs
-    // ===============================
     @Override
     @Transactional(readOnly = true)
-    public List<AttendanceRecord> getByAttendanceSession(Long sessionId) {
-        return attendanceRecordRepository.findByAttendanceSessionId(sessionId);
+    public List<AttendanceRecord> getByAttendanceSession(Long attendanceSessionId) {
+        return attendanceRecordRepository
+                .findByAttendanceSessionId(attendanceSessionId);
     }
 
     @Override
@@ -215,11 +223,14 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
     @Override
     @Transactional(readOnly = true)
     public List<AttendanceRecord> getBySessionAndDate(
-            Long sessionId,
+            Long attendanceSessionId,
             LocalDate date
     ) {
         return attendanceRecordRepository
-                .findByAttendanceSessionIdAndAttendanceDate(sessionId, date);
+                .findByAttendanceSessionIdAndAttendanceDate(
+                        attendanceSessionId,
+                        date
+                );
     }
 
     @Override
@@ -228,9 +239,6 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
         return attendanceRecordRepository.findByStudentId(studentId);
     }
 
-    // ===============================
-    // DELETE
-    // ===============================
     @Override
     public void delete(Long attendanceRecordId) {
 

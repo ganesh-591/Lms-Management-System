@@ -6,17 +6,9 @@ import com.lms.management.model.StudentBatch;
 
 public interface StudentBatchService {
 
-    StudentBatch enrollStudent(
-            Long studentId,
-            String studentName,
-            Long courseId,
-            Long batchId
-    );
+    StudentBatch enrollStudent(StudentBatch studentBatch);
 
-    StudentBatch updateEnrollment(
-            Long studentBatchId,
-            StudentBatch updated
-    );
+    StudentBatch updateEnrollment(Long studentBatchId, StudentBatch updated);
 
     List<StudentBatch> getStudentsByBatch(Long batchId);
 

@@ -15,20 +15,15 @@ public interface StudentBatchRepository
 
     // View student's current active batch
     Optional<StudentBatch> findFirstByStudentIdAndStatus(
-            Long studentId,
-            String status
-    );
+            Long studentId, String status);
 
-    // 🔒 Validation checks
+    // Validation checks
     boolean existsByStudentIdAndBatchIdAndStatus(
-            Long studentId,
-            Long batchId,
-            String status
-    );
+            Long studentId, Long batchId, String status);
 
     boolean existsByStudentIdAndCourseIdAndStatus(
-            Long studentId,
-            Long courseId,
-            String status
-    );
+            Long studentId, Long courseId, String status);
+
+    // ⭐ REQUIRED for batch capacity check
+    long countByBatchIdAndStatus(Long batchId, String status);
 }
