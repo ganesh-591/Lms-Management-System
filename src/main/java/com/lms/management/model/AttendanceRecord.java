@@ -36,6 +36,9 @@ public class AttendanceRecord {
 
     @Column
     private String remarks;
+    
+    @Column(name = "left_at")
+    private LocalDateTime leftAt;
 
     @Column(name = "marked_by", nullable = false)
     private Long markedBy;

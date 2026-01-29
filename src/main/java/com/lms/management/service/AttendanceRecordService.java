@@ -52,4 +52,6 @@ public interface AttendanceRecordService {
     // DELETE ATTENDANCE RECORD
     // ===============================
     void delete(Long attendanceRecordId);
+    
+    void markLeave(Long attendanceSessionId, Long studentId);
 }

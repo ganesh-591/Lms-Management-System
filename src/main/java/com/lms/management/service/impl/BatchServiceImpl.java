@@ -74,6 +74,10 @@ public class BatchServiceImpl implements BatchService {
         if (updatedBatch.getTrainerName() != null) {
             existingBatch.setTrainerName(updatedBatch.getTrainerName());
         }
+        
+        if (updatedBatch.getTrainerId() != null) {
+            existingBatch.setTrainerId(updatedBatch.getTrainerId());
+        }
 
         if (updatedBatch.getStartDate() != null) {
             existingBatch.setStartDate(updatedBatch.getStartDate());

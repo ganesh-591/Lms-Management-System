@@ -120,4 +120,20 @@ public class AttendanceRecordController {
     ) {
         attendanceRecordService.delete(attendanceRecordId);
     }
+    
+ // MARK LEAVE (STUDENT LEAVES SESSION)
+ // ===============================
+ @PostMapping("/leave")
+ @PreAuthorize("hasAuthority('ATTENDANCE_RECORD_CREATE')")
+ public void markLeave(
+         @RequestParam Long attendanceSessionId,
+         @RequestParam Long studentId
+ ) {
+     attendanceRecordService.markLeave(
+             attendanceSessionId,
+             studentId
+     );
+ }
+ 
+ 
 }

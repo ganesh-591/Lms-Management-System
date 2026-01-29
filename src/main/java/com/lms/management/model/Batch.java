@@ -34,6 +34,11 @@ public class Batch {
     @Column(name = "batch_name", nullable = false)
     private String batchName;
 
+    // ✅ NEW FIELD (comes from User module)
+    @Column(name = "trainer_id", nullable = false)
+    private Long trainerId;
+
+    // 🔹 Snapshot / display field
     @Column(name = "trainer_name", nullable = false)
     private String trainerName;
 

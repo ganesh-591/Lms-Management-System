@@ -33,6 +33,7 @@ public class StudentBatchTransferServiceImpl
             String reason,
             String transferredBy) {
 
+        // 1️⃣ Find ACTIVE enrollment
         StudentBatch activeBatch =
                 studentBatchRepository
                         .findFirstByStudentIdAndStatus(studentId, "ACTIVE")
@@ -42,36 +43,41 @@ public class StudentBatchTransferServiceImpl
 
         Long fromBatchId = activeBatch.getBatchId();
 
-        // ❗ Block same batch transfer
+        // 2️⃣ Prevent same-batch transfer
         if (fromBatchId.equals(toBatchId)) {
             throw new IllegalStateException(
                     "Source batch and target batch cannot be the same");
         }
 
-        // ❗ Block duplicate ACTIVE in target batch
+        // 3️⃣ Prevent duplicate ACTIVE in target batch
         if (studentBatchRepository
                 .existsByStudentIdAndBatchIdAndStatus(
                         studentId, toBatchId, "ACTIVE")) {
 
             throw new IllegalStateException(
-                    "Student is already active in target batch");
+                    "Student already active in target batch");
         }
 
-        // Close old enrollment
+        // 4️⃣ Close old enrollment
         activeBatch.setStatus("TRANSFERRED");
         studentBatchRepository.save(activeBatch);
 
-        // Create new ACTIVE enrollment
+        // 5️⃣ Create NEW ACTIVE enrollment (🔥 COPY DATA BEFORE SAVE)
         StudentBatch newBatch = new StudentBatch();
         newBatch.setStudentId(studentId);
         newBatch.setCourseId(courseId);
         newBatch.setBatchId(toBatchId);
+
+        // 🔥 REQUIRED FIELDS (FROM EXISTING RECORD)
+        newBatch.setStudentName(activeBatch.getStudentName());
+        newBatch.setStudentEmail(activeBatch.getStudentEmail());
+
         newBatch.setStatus("ACTIVE");
         newBatch.setJoinedAt(LocalDateTime.now());
 
         studentBatchRepository.save(newBatch);
 
-        // Save transfer history
+        // 6️⃣ Save transfer history
         StudentBatchTransfer transfer = new StudentBatchTransfer();
         transfer.setStudentId(studentId);
         transfer.setCourseId(courseId);

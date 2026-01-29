@@ -1,5 +1,6 @@
 package com.lms.management.repository;
 
+import java.awt.print.Pageable;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -33,5 +34,13 @@ public interface AttendanceRecordRepository
     List<AttendanceRecord> findByAttendanceSessionIdAndAttendanceDate(
             Long attendanceSessionId,
             LocalDate attendanceDate
+    );
+    
+    List<AttendanceRecord>
+    findTopNByStudentIdOrderByAttendanceDateDesc(Long studentId, Pageable pageable);
+    
+    List<AttendanceRecord> findTopByStudentIdOrderByAttendanceDateDesc(
+            Long studentId,
+            int limit
     );
 }
