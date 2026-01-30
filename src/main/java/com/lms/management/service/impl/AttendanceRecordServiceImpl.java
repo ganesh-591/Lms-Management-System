@@ -36,6 +36,7 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
     private final StudentBatchRepository studentBatchRepository;
     private final AttendanceAlertFlagRepository attendanceAlertFlagRepository;
     private final EmailNotificationService emailNotificationService;
+    
 
     // ===============================
     // JOIN (MARK ATTENDANCE)
@@ -76,13 +77,13 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
     // LEAVE (FINALIZE ATTENDANCE)
     // ===============================
     @Override
+    @Transactional
     public void markLeave(Long attendanceSessionId, Long studentId) {
 
         AttendanceRecord record =
                 attendanceRecordRepository
                         .findByAttendanceSessionIdAndStudentId(
-                                attendanceSessionId,
-                                studentId
+                                attendanceSessionId, studentId
                         )
                         .orElseThrow(() ->
                                 new IllegalStateException("Attendance not found"));
@@ -101,10 +102,8 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
             return;
         }
 
-        LocalDateTime leaveTime =
-                session.getEndedAt() != null
-                        ? session.getEndedAt()
-                        : LocalDateTime.now();
+        LocalDateTime leaveTime = LocalDateTime.now();
+        record.setLeftAt(leaveTime);
 
         long sessionMinutes =
                 Duration.between(
@@ -125,21 +124,25 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
         int attendancePercent =
                 (int) ((attendedMinutes * 100) / sessionMinutes);
 
-        // ===============================
-        // FINAL STATUS DECISION
-        // ===============================
-        if (attendancePercent >= config.getMinPresenceMinutes()) {
-            record.setStatus("PRESENT");
-        } else if ("MARK_PARTIAL".equalsIgnoreCase(
-                config.getEarlyExitAction())) {
-            record.setStatus("PARTIAL");
-        } else {
+        // ✅ APPLY STATUS
+        if (attendedMinutes < config.getMinPresenceMinutes()) {
+
             record.setStatus("ABSENT");
+            record.setRemarks("Left before minimum presence time");
+
+        } else if (attendancePercent < config.getExamEligibilityPercent()) {
+
+            record.setStatus("PARTIAL");
+            record.setRemarks("Partial attendance");
+
+        } else {
+
+            record.setStatus("PRESENT");
+            record.setRemarks("Attended and left");
         }
 
         attendanceRecordRepository.save(record);
     }
-
     // ===============================
     // VALIDATIONS
     // ===============================
@@ -458,28 +461,31 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
          status.setAttendancePercent(percent);
          status.setEligible(eligible);
 
-         syncAlertFlag(
+         syncAndNotify(
         	        studentId,
         	        courseId,
         	        batchId,
         	        "AT_RISK_PERCENT",
-        	        atRiskByPercent
+        	        atRiskByPercent,
+        	        percent
         	);
 
-        	syncAlertFlag(
+        	syncAndNotify(
         	        studentId,
         	        courseId,
         	        batchId,
         	        "CONSECUTIVE_ABSENCE",
-        	        atRiskByAbsence
+        	        atRiskByAbsence,
+        	        percent
         	);
 
-        	syncAlertFlag(
+        	syncAndNotify(
         	        studentId,
         	        courseId,
         	        batchId,
         	        "NOT_ELIGIBLE",
-        	        !eligible
+        	        !eligible,
+        	        percent
         	);
          // keep risks separate
          status.setAtRiskByPercent(atRiskByPercent);
@@ -556,7 +562,7 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
 	            )
 	            .ifPresentOrElse(flag -> {
 
-	                // 🔵 CONDITION RESOLVED → close flag
+	                // CONDITION RESOLVED → close flag
 	                if (!conditionActive && "ACTIVE".equals(flag.getStatus())) {
 	                    flag.setStatus("RESOLVED");
 	                    flag.setResolvedAt(LocalDateTime.now());
@@ -565,8 +571,9 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
 
 	            }, () -> {
 
-	                // 🔴 NEW RISK → create flag + SEND EMAIL ONCE
+	                // NEW RISK → create flag + SEND EMAIL ONCE
 	                if (conditionActive) {
+
 	                    AttendanceAlertFlag flag = new AttendanceAlertFlag();
 	                    flag.setStudentId(studentId);
 	                    flag.setCourseId(courseId);
@@ -575,7 +582,7 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
 
 	                    attendanceAlertFlagRepository.save(flag);
 
-	                    // 🔔 EMAIL TRIGGER (ONLY HERE)
+	                    // 🔔 EXACT LINE YOU ADD
 	                    emailNotificationService.sendAttendanceAlert(
 	                            studentId,
 	                            flagType,
@@ -583,6 +590,49 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
 	                    );
 	                }
 	            });
+	}
+ 
+ private void syncAndNotify(
+	        Long studentId,
+	        Long courseId,
+	        Long batchId,
+	        String flagType,
+	        boolean conditionActive,
+	        int attendancePercent
+	) {
+
+	    attendanceAlertFlagRepository
+	        .findByStudentIdAndCourseIdAndBatchIdAndFlagType(
+	                studentId, courseId, batchId, flagType
+	        )
+	        .ifPresentOrElse(flag -> {
+
+	            // condition cleared → resolve flag
+	            if (!conditionActive && "ACTIVE".equals(flag.getStatus())) {
+	                flag.setStatus("RESOLVED");
+	                flag.setResolvedAt(LocalDateTime.now());
+	                attendanceAlertFlagRepository.save(flag);
+	            }
+
+	        }, () -> {
+
+	            // NEW risk → create flag + SEND AUTO EMAIL
+	            if (conditionActive) {
+	                AttendanceAlertFlag flag = new AttendanceAlertFlag();
+	                flag.setStudentId(studentId);
+	                flag.setCourseId(courseId);
+	                flag.setBatchId(batchId);
+	                flag.setFlagType(flagType);
+	                attendanceAlertFlagRepository.save(flag);
+
+	                // 🔔 AUTO EMAIL (ONCE)
+	                emailNotificationService.sendAttendanceAlert(
+	                        studentId,
+	                        flagType,
+	                        attendancePercent
+	                );
+	            }
+	        });
 	}
 
 }

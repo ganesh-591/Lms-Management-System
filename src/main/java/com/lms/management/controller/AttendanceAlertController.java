@@ -15,16 +15,19 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AttendanceAlertController {
 
-    // ✅ INJECT SERVICE
     private final EmailNotificationService emailNotificationService;
 
     @PostMapping("/send")
     @PreAuthorize("hasAuthority('ATTENDANCE_ALERT_SEND')")
     public void sendManualAlert(
             @RequestParam Long studentId,
-            @RequestParam String flagType
+            @RequestParam String flagType,
+            @RequestParam int attendancePercent
     ) {
-        emailNotificationService
-                .sendManualAttendanceAlert(studentId, flagType);
+        emailNotificationService.sendAttendanceAlert(
+                studentId,
+                flagType,
+                attendancePercent
+        );
     }
 }

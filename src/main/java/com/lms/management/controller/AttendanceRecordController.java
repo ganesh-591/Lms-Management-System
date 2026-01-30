@@ -153,18 +153,6 @@ public class AttendanceRecordController {
      return attendanceRecordService.getDashboardAttendanceStatus(courseId, batchId);
  }
  
- @GetMapping("/dashboard")
- @PreAuthorize("hasAuthority('ATTENDANCE_RECORD_VIEW')")
- public List<StudentAttendanceStatus> getDashboardAttendance(
-         @RequestParam Long courseId,
-         @RequestParam Long batchId
- ) {
-     return attendanceRecordService.getDashboardAttendanceStatus(
-             courseId,
-             batchId
-     );
- }
- 
  
  
 }

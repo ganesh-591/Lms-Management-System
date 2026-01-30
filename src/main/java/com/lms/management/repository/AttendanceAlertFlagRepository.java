@@ -8,12 +8,11 @@ import com.lms.management.model.AttendanceAlertFlag;
 
 public interface AttendanceAlertFlagRepository
         extends JpaRepository<AttendanceAlertFlag, Long> {
-
-    Optional<AttendanceAlertFlag>
-    findByStudentIdAndCourseIdAndBatchIdAndFlagType(
-            Long studentId,
-            Long courseId,
-            Long batchId,
-            String flagType
-    );
+	Optional<AttendanceAlertFlag>
+	findByStudentIdAndCourseIdAndBatchIdAndFlagType(
+	        Long studentId,
+	        Long courseId,
+	        Long batchId,
+	        String flagType
+	);
 }
