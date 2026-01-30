@@ -10,14 +10,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.lms.management.exception.ResourceNotFoundException;
+import com.lms.management.model.AttendanceAlertFlag;
 import com.lms.management.model.AttendanceConfig;
 import com.lms.management.model.AttendanceRecord;
 import com.lms.management.model.AttendanceSession;
+import com.lms.management.model.StudentAttendanceStatus;
+import com.lms.management.repository.AttendanceAlertFlagRepository;
 import com.lms.management.repository.AttendanceConfigRepository;
 import com.lms.management.repository.AttendanceRecordRepository;
 import com.lms.management.repository.AttendanceSessionRepository;
 import com.lms.management.repository.StudentBatchRepository;
 import com.lms.management.service.AttendanceRecordService;
+import com.lms.management.service.EmailNotificationService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,6 +34,8 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
     private final AttendanceSessionRepository attendanceSessionRepository;
     private final AttendanceConfigRepository attendanceConfigRepository;
     private final StudentBatchRepository studentBatchRepository;
+    private final AttendanceAlertFlagRepository attendanceAlertFlagRepository;
+    private final EmailNotificationService emailNotificationService;
 
     // ===============================
     // JOIN (MARK ATTENDANCE)
@@ -292,8 +298,229 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
  // ===============================
  // AT-RISK CHECK (READ ONLY)
  // ===============================
+    @Transactional(readOnly = true)
+    public boolean isStudentAtRiskByAbsence(
+            Long studentId,
+            Long courseId,
+            Long batchId
+    ) {
+
+        AttendanceConfig config =
+                attendanceConfigRepository
+                        .findByCourseIdAndBatchId(courseId, batchId)
+                        .orElseThrow(() ->
+                                new IllegalStateException("Attendance config not found"));
+
+        int limit = config.getConsecutiveAbsenceLimit();
+
+        List<AttendanceRecord> records =
+                attendanceRecordRepository
+                        .findTopByStudentIdOrderByAttendanceDateDesc(studentId, limit);
+
+        int consecutiveAbsent = 0;
+
+        for (AttendanceRecord record : records) {
+            if ("ABSENT".equals(record.getStatus())) {
+                consecutiveAbsent++;
+            } else {
+                break; // streak broken
+            }
+        }
+
+        return consecutiveAbsent >= limit;
+    }
+ 
  @Transactional(readOnly = true)
+ public int calculateAttendancePercentage(
+         Long studentId,
+         Long courseId,
+         Long batchId
+ ) {
+
+     // 1. Get all sessions for course + batch
+     List<AttendanceSession> sessions =
+             attendanceSessionRepository
+                     .findByCourseIdAndBatchId(courseId, batchId);
+
+     if (sessions.isEmpty()) return 0;
+
+     List<Long> sessionIds =
+             sessions.stream()
+                     .map(AttendanceSession::getId)
+                     .toList();
+
+     // 2. Total sessions
+     long totalSessions = sessionIds.size();
+
+     // 3. Attended sessions (PRESENT + PARTIAL)
+     long attendedSessions =
+             attendanceRecordRepository
+                     .countByStudentIdAndAttendanceSessionIdInAndStatusIn(
+                             studentId,
+                             sessionIds,
+                             List.of("PRESENT", "PARTIAL")
+                     );
+
+     // 4. Percentage
+     return (int) ((attendedSessions * 100) / totalSessions);
+ }
+ 
+ @Transactional(readOnly = true)
+ public int getAttendancePercentage(Long studentId, Long courseId, Long batchId) {
+
+     // 1. Get all sessions
+     List<AttendanceSession> sessions =
+             attendanceSessionRepository.findByCourseIdAndBatchId(courseId, batchId);
+
+     if (sessions.isEmpty()) return 0;
+
+     List<Long> sessionIds =
+             sessions.stream()
+                     .map(AttendanceSession::getId)
+                     .toList();
+
+     // 2. Total sessions
+     long totalSessions = sessionIds.size();
+
+     // 3. Attended sessions (PRESENT + PARTIAL)
+     long attendedSessions =
+             attendanceRecordRepository
+                     .countByStudentIdAndAttendanceSessionIdInAndStatusIn(
+                             studentId,
+                             sessionIds,
+                             List.of("PRESENT", "PARTIAL")
+                     );
+
+     // 4. Percentage
+     return (int) ((attendedSessions * 100) / totalSessions);
+ }
+ 
+ @Override
+ public boolean isStudentEligible(Long studentId, Long courseId, Long batchId) {
+     AttendanceConfig config =
+             attendanceConfigRepository
+                     .findByCourseIdAndBatchId(courseId, batchId)
+                     .orElseThrow(() ->
+                             new IllegalStateException("Attendance config not found"));
+
+     int attendancePercent =
+             getAttendancePercentage(studentId, courseId, batchId);
+
+     return attendancePercent >= config.getExamEligibilityPercent();
+ }
+ 
+ 
+ @Override
  public boolean isStudentAtRisk(Long studentId, Long courseId, Long batchId) {
+     AttendanceConfig config =
+             attendanceConfigRepository
+                     .findByCourseIdAndBatchId(courseId, batchId)
+                     .orElseThrow(() ->
+                             new IllegalStateException("Attendance config not found"));
+
+     int attendancePercent =
+             getAttendancePercentage(studentId, courseId, batchId);
+
+     return attendancePercent < config.getAtRiskPercent();
+ }
+ 
+ @Override
+ @Transactional(readOnly = true)
+ public List<StudentAttendanceStatus> getDashboardAttendanceStatus(
+         Long courseId,
+         Long batchId
+         
+ ) {
+
+     // 1. Get all students in batch
+     List<Long> studentIds =
+             studentBatchRepository.findStudentIdsByBatchId(batchId);
+
+     List<StudentAttendanceStatus> result = new ArrayList<>();
+
+     for (Long studentId : studentIds) {
+
+         int percent =
+                 getAttendancePercentage(studentId, courseId, batchId);
+
+         boolean eligible =
+                 isStudentEligible(studentId, courseId, batchId);
+
+         boolean atRiskByPercent =
+                 percent < getConfig(courseId, batchId).getAtRiskPercent();
+
+         boolean atRiskByAbsence =
+                 isStudentAtRiskByAbsence(studentId, courseId, batchId);
+
+         StudentAttendanceStatus status = new StudentAttendanceStatus();
+
+         status.setStudentId(studentId);
+         status.setAttendancePercent(percent);
+         status.setEligible(eligible);
+
+         syncAlertFlag(
+        	        studentId,
+        	        courseId,
+        	        batchId,
+        	        "AT_RISK_PERCENT",
+        	        atRiskByPercent
+        	);
+
+        	syncAlertFlag(
+        	        studentId,
+        	        courseId,
+        	        batchId,
+        	        "CONSECUTIVE_ABSENCE",
+        	        atRiskByAbsence
+        	);
+
+        	syncAlertFlag(
+        	        studentId,
+        	        courseId,
+        	        batchId,
+        	        "NOT_ELIGIBLE",
+        	        !eligible
+        	);
+         // keep risks separate
+         status.setAtRiskByPercent(atRiskByPercent);
+         status.setAtRiskByAbsence(atRiskByAbsence);
+
+         // alert flag (ONLY indicates alert is needed)
+         status.setAlertRequired(atRiskByPercent || atRiskByAbsence);
+
+         // alert reason (single dominant reason, no mixing)
+         if (atRiskByAbsence) {
+             status.setAlertReason("CONSECUTIVE_ABSENCE");
+         } else if (atRiskByPercent) {
+             status.setAlertReason("LOW_ATTENDANCE_PERCENT");
+         } else {
+             status.setAlertReason(null);
+         }
+
+         result.add(status);
+     }
+
+     return result;
+ }
+ 
+ @Transactional(readOnly = true)
+ public String getStudentAttendanceFlag(
+         Long studentId,
+         Long courseId,
+         Long batchId
+ ) {
+
+     // 1️⃣ Check consecutive absence (HIGH PRIORITY)
+     boolean atRiskByAbsence =
+             isStudentAtRiskByAbsence(studentId, courseId, batchId);
+
+     if (atRiskByAbsence) {
+         return "AT_RISK_ABSENCE";
+     }
+
+     // 2️⃣ Calculate attendance percentage
+     int attendancePercent =
+             getAttendancePercentage(studentId, courseId, batchId);
 
      AttendanceConfig config =
              attendanceConfigRepository
@@ -301,22 +528,61 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
                      .orElseThrow(() ->
                              new IllegalStateException("Attendance config not found"));
 
-     int limit = config.getConsecutiveAbsenceLimit();
-
-     List<AttendanceRecord> records =
-             attendanceRecordRepository
-                     .findTopByStudentIdOrderByAttendanceDateDesc(studentId, limit);
-
-     int consecutiveAbsent = 0;
-
-     for (AttendanceRecord record : records) {
-         if ("ABSENT".equals(record.getStatus())) {
-             consecutiveAbsent++;
-         } else {
-             break; // streak broken
-         }
+     // 3️⃣ Eligibility check
+     if (attendancePercent < config.getExamEligibilityPercent()) {
+         return "NOT_ELIGIBLE";
      }
 
-     return consecutiveAbsent >= limit;
+     // 4️⃣ At-risk percentage check
+     if (attendancePercent < config.getAtRiskPercent()) {
+         return "AT_RISK_PERCENTAGE";
+     }
+
+     // 5️⃣ Safe
+     return "OK";
  }
+ 
+ private void syncAlertFlag(
+	        Long studentId,
+	        Long courseId,
+	        Long batchId,
+	        String flagType,
+	        boolean conditionActive
+	) {
+
+	    attendanceAlertFlagRepository
+	            .findByStudentIdAndCourseIdAndBatchIdAndFlagType(
+	                    studentId, courseId, batchId, flagType
+	            )
+	            .ifPresentOrElse(flag -> {
+
+	                // 🔵 CONDITION RESOLVED → close flag
+	                if (!conditionActive && "ACTIVE".equals(flag.getStatus())) {
+	                    flag.setStatus("RESOLVED");
+	                    flag.setResolvedAt(LocalDateTime.now());
+	                    attendanceAlertFlagRepository.save(flag);
+	                }
+
+	            }, () -> {
+
+	                // 🔴 NEW RISK → create flag + SEND EMAIL ONCE
+	                if (conditionActive) {
+	                    AttendanceAlertFlag flag = new AttendanceAlertFlag();
+	                    flag.setStudentId(studentId);
+	                    flag.setCourseId(courseId);
+	                    flag.setBatchId(batchId);
+	                    flag.setFlagType(flagType);
+
+	                    attendanceAlertFlagRepository.save(flag);
+
+	                    // 🔔 EMAIL TRIGGER (ONLY HERE)
+	                    emailNotificationService.sendAttendanceAlert(
+	                            studentId,
+	                            flagType,
+	                            getAttendancePercentage(studentId, courseId, batchId)
+	                    );
+	                }
+	            });
+	}
+
 }

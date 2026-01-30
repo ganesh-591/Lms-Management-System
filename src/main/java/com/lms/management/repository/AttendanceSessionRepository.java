@@ -44,4 +44,6 @@ public interface AttendanceSessionRepository
             Long sessionId,
             List<String> statuses
     );
+    
+    List<AttendanceSession> findByCourseIdAndBatchId(Long courseId, Long batchId);
 }

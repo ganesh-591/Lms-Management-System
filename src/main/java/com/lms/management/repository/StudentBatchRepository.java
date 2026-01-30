@@ -26,4 +26,6 @@ public interface StudentBatchRepository
 
     // ⭐ REQUIRED for batch capacity check
     long countByBatchIdAndStatus(Long batchId, String status);
+    
+    List<Long> findStudentIdsByBatchId(Long batchId);
 }

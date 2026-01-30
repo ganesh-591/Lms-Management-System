@@ -43,4 +43,14 @@ public interface AttendanceRecordRepository
             Long studentId,
             int limit
     );
+    long countByStudentIdAndAttendanceSessionIdIn(
+            Long studentId,
+            List<Long> sessionIds
+    );
+
+    long countByStudentIdAndAttendanceSessionIdInAndStatusIn(
+            Long studentId,
+            List<Long> sessionIds,
+            List<String> statuses
+    );
 }
