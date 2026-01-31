@@ -48,6 +48,8 @@ public interface AttendanceRecordService {
     // STUDENT SELF / ADMIN VIEW
     // ===============================
     List<AttendanceRecord> getByStudent(Long studentId);
+    
+    
 
     // ===============================
     // DELETE ATTENDANCE RECORD

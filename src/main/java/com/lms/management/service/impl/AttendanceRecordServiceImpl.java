@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -312,13 +313,18 @@ public class AttendanceRecordServiceImpl implements AttendanceRecordService {
                 attendanceConfigRepository
                         .findByCourseIdAndBatchId(courseId, batchId)
                         .orElseThrow(() ->
-                                new IllegalStateException("Attendance config not found"));
+                                new IllegalStateException("Attendance config not found")
+                        );
 
         int limit = config.getConsecutiveAbsenceLimit();
 
+        // ✅ CORRECT: use Pageable
         List<AttendanceRecord> records =
                 attendanceRecordRepository
-                        .findTopByStudentIdOrderByAttendanceDateDesc(studentId, limit);
+                        .findByStudentIdOrderByAttendanceDateDesc(
+                                studentId,
+                                PageRequest.of(0, limit)
+                        );
 
         int consecutiveAbsent = 0;
 

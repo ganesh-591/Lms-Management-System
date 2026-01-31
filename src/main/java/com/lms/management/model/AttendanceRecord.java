@@ -5,7 +5,13 @@ import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -25,10 +31,6 @@ public class AttendanceRecord {
     // 🔗 Link to attendance_session
     @Column(name = "attendance_session_id", nullable = false)
     private Long attendanceSessionId;
-
-    // 🔗 Student info (from User module)
-    @Column(name = "student_id", nullable = false)
-    private Long studentId;
 
     // PRESENT / ABSENT / LATE / EXCUSED / PARTIAL
     @Column(nullable = false)
@@ -53,6 +55,9 @@ public class AttendanceRecord {
     // MANUAL / CSV / OFFLINE
     @Column(nullable = false)
     private String source;
+    
+    @Column(name = "student_id")
+    private Long studentId;
 
     @PrePersist
     protected void onCreate() {

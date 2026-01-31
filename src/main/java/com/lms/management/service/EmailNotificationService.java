@@ -2,12 +2,11 @@ package com.lms.management.service;
 
 public interface EmailNotificationService {
 
-    void sendAttendanceAlert(
+   public void sendAttendanceAlert(
             Long studentId,
-            String flagType,
+            String alertType,
             int attendancePercent
     );
-
-    // ✅ ADD THIS
-    void sendManualAttendanceAlert(Long studentId, String flagType);
+   
+   void sendManualAttendanceAlert(Long studentId, String flagType);
 }

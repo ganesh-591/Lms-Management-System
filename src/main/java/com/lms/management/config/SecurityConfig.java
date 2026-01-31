@@ -1,5 +1,7 @@
 package com.lms.management.config;
 
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -9,8 +11,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-import java.util.List;
 
 @Configuration
 public class SecurityConfig {
@@ -31,17 +31,18 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
 
-                // ✅ ALLOW PREFLIGHT (THIS FIXES PUT)
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+            	    // ✅ ALLOW PREFLIGHT (PUT / PATCH / DELETE)
+            	    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // ✅ PUBLIC
-                .requestMatchers("/uploads/**").permitAll()
-                .requestMatchers("/api/courses/share/**").permitAll()
-                .requestMatchers("/api/content-files/preview/**").permitAll()
+            	    // ✅ PUBLIC STATIC
+            	    .requestMatchers("/uploads/**").permitAll()
+            	    .requestMatchers("/api/courses/share/**").permitAll()
+            	    .requestMatchers("/api/content-files/preview/**").permitAll()
+            	    .requestMatchers("/api/attendance/summary/**").permitAll()
 
-                // 🔐 EVERYTHING ELSE NEEDS AUTH
-                .anyRequest().authenticated()
-            )
+            	    // 🔐 EVERYTHING ELSE NEEDS JWT
+            	    .anyRequest().authenticated()
+            	            )
 
             // JWT FILTER
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

@@ -9,4 +9,5 @@ public interface AttendanceSummaryService {
             Long courseId,
             Long batchId
     );
+    Map<String, Object> getBatchSummary(Long courseId, Long batchId);
 }

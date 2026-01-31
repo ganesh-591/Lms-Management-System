@@ -46,4 +46,17 @@ public interface AttendanceSessionRepository
     );
     
     List<AttendanceSession> findByCourseIdAndBatchId(Long courseId, Long batchId);
+    
+    @Query("""
+    	    SELECT a.id
+    	    FROM AttendanceSession a
+    	    WHERE a.courseId = :courseId
+    	      AND a.batchId = :batchId
+    	""")
+    	List<Long> findIdsByCourseIdAndBatchId(
+    	        @Param("courseId") Long courseId,
+    	        @Param("batchId") Long batchId
+    	);
+    
+    
 }

@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.lms.management.model.StudentBatch;
 
@@ -27,5 +29,16 @@ public interface StudentBatchRepository
     // ⭐ REQUIRED for batch capacity check
     long countByBatchIdAndStatus(Long batchId, String status);
     
-    List<Long> findStudentIdsByBatchId(Long batchId);
+    @Query(
+            value = """
+                SELECT CAST(student_id AS SIGNED)
+                FROM student_batch
+                WHERE batch_id = :batchId
+            """,
+            nativeQuery = true
+        )
+        List<Long> findStudentIdsByBatchId(
+                @Param("batchId") Long batchId
+        );
+    
 }
