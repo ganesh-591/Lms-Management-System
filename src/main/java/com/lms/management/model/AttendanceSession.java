@@ -4,13 +4,27 @@ import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "attendance_session")
+@Table(
+	    name = "attendance_session",
+	    uniqueConstraints = {
+	        @UniqueConstraint(
+	            columnNames = {"session_id", "batch_id"}
+	        )
+	    }
+	)
 @Getter
 @Setter
 @NoArgsConstructor

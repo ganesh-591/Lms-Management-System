@@ -28,12 +28,5 @@ public class AttendanceSummaryController {
                 studentId, courseId, batchId
         );
     }
-    @GetMapping("/batch-summary")
-    public Map<String, Object> getBatchSummary(
-            @RequestParam Long courseId,
-            @RequestParam Long batchId
-    ) {
-        return attendanceSummaryService
-                .getBatchSummary(courseId, batchId);
-    }
+   
 }

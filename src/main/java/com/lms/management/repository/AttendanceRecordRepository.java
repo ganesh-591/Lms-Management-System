@@ -48,7 +48,19 @@ public interface AttendanceRecordRepository
             Long attendanceSessionId,
             LocalDate attendanceDate
     );
-
+    
+    
+    List<AttendanceRecord>
+    findTopByStudentIdOrderByAttendanceDateDesc(
+            Long studentId,
+            Pageable pageable
+    );
+    /*List<AttendanceRecord>
+    findTopNByStudentIdOrderByAttendanceDateDesc(
+            Long studentId,
+            int limit
+    );*/
+    	
     @Query("""
         SELECT ar.studentId
         FROM AttendanceRecord ar
