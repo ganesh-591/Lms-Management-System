@@ -114,26 +114,18 @@ public class AttendanceSummaryServiceImpl
         int eligibleCount = 0;
         int totalPercent = 0;
 
-        for (Long studentId : studentIds) {
-            Map<String, Object> summary =
-                    getStudentEligibilitySummary(studentId, courseId, batchId);
-
-            Object percentObj = summary.get("attendancePercent");
-            int percent = percentObj == null ? 0 : ((Number) percentObj).intValue();
-            
-            totalPercent += percent;
-        }
-
+        // ✅ SINGLE LOOP ONLY
         for (Long studentId : studentIds) {
 
             Map<String, Object> summary =
                     getStudentEligibilitySummary(studentId, courseId, batchId);
 
-            Integer percentObj = (Integer) summary.get("attendancePercent");
+            // ✅ CORRECT KEYS (MATCH STUDENT SUMMARY)
+            Object percentObj = summary.get("attendancePercentage");
             Boolean atRiskObj = (Boolean) summary.get("atRisk");
-            Boolean eligibleObj = (Boolean) summary.get("eligible");
+            Boolean eligibleObj = (Boolean) summary.get("examEligible");
 
-            int percent = percentObj != null ? percentObj : 0;
+            int percent = percentObj == null ? 0 : ((Number) percentObj).intValue();
             boolean atRisk = Boolean.TRUE.equals(atRiskObj);
             boolean eligible = Boolean.TRUE.equals(eligibleObj);
 

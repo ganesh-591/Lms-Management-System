@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.lms.management.model.Exam;
@@ -19,59 +20,69 @@ public class ExamController {
         this.examService = examService;
     }
 
-    /**
-     * CREATE EXAM
-     * Status will always be DRAFT
-     */
+    // CREATE
     @PostMapping
+    @PreAuthorize("hasAuthority('EXAM_CREATE')")
     public ResponseEntity<Exam> createExam(@RequestBody Exam exam) {
-        Exam createdExam = examService.createExam(exam);
-        return new ResponseEntity<>(createdExam, HttpStatus.CREATED);
+        return new ResponseEntity<>(examService.createExam(exam), HttpStatus.CREATED);
     }
 
-    /**
-     * PUBLISH EXAM
-     * Only DRAFT → PUBLISHED allowed
-     */
+    // PUBLISH
     @PutMapping("/{examId}/publish")
+    @PreAuthorize("hasAuthority('EXAM_PUBLISH')")
     public ResponseEntity<Exam> publishExam(@PathVariable Long examId) {
-        Exam exam = examService.publishExam(examId);
-        return ResponseEntity.ok(exam);
+        return ResponseEntity.ok(examService.publishExam(examId));
     }
 
-    /**
-     * CLOSE EXAM
-     * Locks the exam permanently
-     */
+    // CLOSE
     @PutMapping("/{examId}/close")
+    @PreAuthorize("hasAuthority('EXAM_CLOSE')")
     public ResponseEntity<Exam> closeExam(@PathVariable Long examId) {
-        Exam exam = examService.closeExam(examId);
-        return ResponseEntity.ok(exam);
+        return ResponseEntity.ok(examService.closeExam(examId));
     }
 
-    /**
-     * GET EXAM BY ID
-     */
+    // GET
     @GetMapping("/{examId}")
-    public ResponseEntity<Exam> getExamById(@PathVariable Long examId) {
+    @PreAuthorize("hasAuthority('EXAM_VIEW')")
+    public ResponseEntity<Exam> getExam(@PathVariable Long examId) {
         return ResponseEntity.ok(examService.getExamById(examId));
     }
 
-    /**
-     * GET EXAMS BY COURSE
-     */
     @GetMapping("/course/{courseId}")
-    public ResponseEntity<List<Exam>> getExamsByCourse(
-            @PathVariable Long courseId) {
+    @PreAuthorize("hasAuthority('EXAM_VIEW')")
+    public ResponseEntity<List<Exam>> getByCourse(@PathVariable Long courseId) {
         return ResponseEntity.ok(examService.getExamsByCourseId(courseId));
     }
 
-    /**
-     * GET EXAMS BY BATCH
-     */
     @GetMapping("/batch/{batchId}")
-    public ResponseEntity<List<Exam>> getExamsByBatch(
-            @PathVariable Long batchId) {
+    @PreAuthorize("hasAuthority('EXAM_VIEW')")
+    public ResponseEntity<List<Exam>> getByBatch(@PathVariable Long batchId) {
         return ResponseEntity.ok(examService.getExamsByBatchId(batchId));
+    }
+
+    // ============ DELETE APIs ============
+
+    // SOFT DELETE
+    @DeleteMapping("/{examId}")
+    @PreAuthorize("hasAuthority('EXAM_DELETE')")
+    public ResponseEntity<Void> softDelete(@PathVariable Long examId) {
+        examService.softDeleteExam(examId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // RESTORE
+    @PutMapping("/{examId}/restore")
+    @PreAuthorize("hasAuthority('EXAM_RESTORE')")
+    public ResponseEntity<Void> restore(@PathVariable Long examId) {
+        examService.restoreExam(examId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // HARD DELETE
+    @DeleteMapping("/{examId}/hard")
+    @PreAuthorize("hasAuthority('EXAM_HARD_DELETE')")
+    public ResponseEntity<Void> hardDelete(@PathVariable Long examId) {
+        examService.hardDeleteExam(examId);
+        return ResponseEntity.noContent().build();
     }
 }

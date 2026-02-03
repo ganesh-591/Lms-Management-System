@@ -2,13 +2,14 @@ package com.lms.management.model;
 
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -32,12 +33,12 @@ public class Exam {
     @Column(name = "batch_id")
     private Long batchId;
 
-    @Column(name = "title", nullable = false)
-    private String title;
-
-    // MCQ / DESCRIPTIVE / CODING / MIXED
+    @JsonProperty("examType") // ✅ EXPLICIT MAPPING
     @Column(name = "exam_type", nullable = false)
     private String examType;
+
+    @Column(name = "title", nullable = false)
+    private String title;
 
     @Column(name = "total_marks", nullable = false)
     private Integer totalMarks;
@@ -48,28 +49,18 @@ public class Exam {
     @Column(name = "duration_minutes", nullable = false)
     private Integer durationMinutes;
 
-    @Column(name = "attempts_allowed", nullable = false)
-    private Integer attemptsAllowed;
-
-    // DRAFT / PUBLISHED / CLOSED
     @Column(name = "status", nullable = false)
     private String status;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    
+    @Column(name = "is_deleted", nullable = false)
+    private Boolean isDeleted = false;
 
     @PrePersist
     protected void onCreate() {
         this.status = "DRAFT";
         this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
     }
 }

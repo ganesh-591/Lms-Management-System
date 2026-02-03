@@ -1,7 +1,10 @@
 package com.lms.management.util;
 
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
 import org.springframework.web.multipart.MultipartFile;
@@ -97,5 +100,23 @@ public class FileUploadUtil {
         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
         return "/uploads/session-contents/" + fileName;
+    }
+    
+    public static String saveFile(MultipartFile file, String folder) {
+
+        try {
+            String uploadDir = "uploads/" + folder;
+            Files.createDirectories(Paths.get(uploadDir));
+
+            String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
+            Path path = Paths.get(uploadDir, fileName);
+
+            Files.copy(file.getInputStream(), path, StandardCopyOption.REPLACE_EXISTING);
+
+            return "/" + uploadDir + "/" + fileName;
+
+        } catch (Exception e) {
+            throw new RuntimeException("File upload failed");
+        }
     }
 }

@@ -6,7 +6,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.lms.management.exception.ResourceNotFoundException;
+import com.lms.management.model.Batch;
 import com.lms.management.model.Exam;
+import com.lms.management.repository.BatchRepository;
+import com.lms.management.repository.CourseRepository;
 import com.lms.management.repository.ExamRepository;
 import com.lms.management.service.ExamService;
 
@@ -15,70 +18,94 @@ import com.lms.management.service.ExamService;
 public class ExamServiceImpl implements ExamService {
 
     private final ExamRepository examRepository;
+    private final CourseRepository courseRepository;
+    private final BatchRepository batchRepository;
 
-    public ExamServiceImpl(ExamRepository examRepository) {
+    public ExamServiceImpl(
+            ExamRepository examRepository,
+            CourseRepository courseRepository,
+            BatchRepository batchRepository) {
+
         this.examRepository = examRepository;
+        this.courseRepository = courseRepository;
+        this.batchRepository = batchRepository;
     }
 
     @Override
     public Exam createExam(Exam exam) {
 
-        // Basic validations
-        if (exam.getAttemptsAllowed() == null || exam.getAttemptsAllowed() <= 0) {
-            throw new IllegalArgumentException("Attempts allowed must be greater than 0");
+        // 1️⃣ Validate course exists
+        courseRepository.findById(exam.getCourseId())
+                .orElseThrow(() ->
+                        new IllegalStateException("Invalid courseId"));
+
+        // 2️⃣ Validate batch exists
+        Batch batch = batchRepository.findById(exam.getBatchId())
+                .orElseThrow(() ->
+                        new IllegalStateException("Invalid batchId"));
+
+        // 3️⃣ Validate batch belongs to course
+        if (!batch.getCourseId().equals(exam.getCourseId())) {
+            throw new IllegalStateException(
+                    "Batch does not belong to given course");
         }
 
-        if (exam.getPassPercentage() == null ||
-            exam.getPassPercentage() < 0 ||
-            exam.getPassPercentage() > 100) {
-            throw new IllegalArgumentException("Pass percentage must be between 0 and 100");
-        }
-
-        // Status is forced by backend
         exam.setStatus("DRAFT");
+        exam.setIsDeleted(false);
 
         return examRepository.save(exam);
     }
-
     @Override
     public Exam publishExam(Long examId) {
-
         Exam exam = getExamById(examId);
-
-        if (!"DRAFT".equals(exam.getStatus())) {
-            throw new IllegalStateException("Only DRAFT exams can be published");
-        }
-
         exam.setStatus("PUBLISHED");
         return examRepository.save(exam);
     }
 
     @Override
     public Exam closeExam(Long examId) {
-
         Exam exam = getExamById(examId);
-
-        if ("CLOSED".equals(exam.getStatus())) {
-            throw new IllegalStateException("Exam already closed");
-        }
-
         exam.setStatus("CLOSED");
         return examRepository.save(exam);
     }
 
     @Override
     public Exam getExamById(Long examId) {
-        return examRepository.findById(examId)
-                .orElseThrow(() -> new ResourceNotFoundException("Exam not found with id: " + examId));
+        return examRepository.findByExamIdAndIsDeletedFalse(examId)
+                .orElseThrow(() -> new ResourceNotFoundException("Exam not found"));
     }
 
     @Override
     public List<Exam> getExamsByCourseId(Long courseId) {
-        return examRepository.findByCourseId(courseId);
+        return examRepository.findByCourseIdAndIsDeletedFalse(courseId);
     }
 
     @Override
     public List<Exam> getExamsByBatchId(Long batchId) {
-        return examRepository.findByBatchId(batchId);
+        return examRepository.findByBatchIdAndIsDeletedFalse(batchId);
+    }
+
+    // ================= DELETE LOGIC =================
+
+    @Override
+    public void softDeleteExam(Long examId) {
+        Exam exam = getExamById(examId);
+        exam.setIsDeleted(true);
+        examRepository.save(exam);
+    }
+
+    @Override
+    public void restoreExam(Long examId) {
+        Exam exam = examRepository.findById(examId)
+                .orElseThrow(() -> new ResourceNotFoundException("Exam not found"));
+        exam.setIsDeleted(false);
+        examRepository.save(exam);
+    }
+
+    @Override
+    public void hardDeleteExam(Long examId) {
+        Exam exam = examRepository.findById(examId)
+                .orElseThrow(() -> new ResourceNotFoundException("Exam not found"));
+        examRepository.delete(exam);
     }
 }

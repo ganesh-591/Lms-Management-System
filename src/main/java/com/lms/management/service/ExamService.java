@@ -6,21 +6,22 @@ import com.lms.management.model.Exam;
 
 public interface ExamService {
 
-    // Create exam (DRAFT)
     Exam createExam(Exam exam);
 
-    // Publish exam
     Exam publishExam(Long examId);
 
-    // Close exam
     Exam closeExam(Long examId);
 
-    // Get exam by id
     Exam getExamById(Long examId);
 
-    // Get exams by course
     List<Exam> getExamsByCourseId(Long courseId);
 
-    // Get exams by batch
     List<Exam> getExamsByBatchId(Long batchId);
+
+    // DELETE OPERATIONS
+    void softDeleteExam(Long examId);
+
+    void restoreExam(Long examId);
+
+    void hardDeleteExam(Long examId);
 }
