@@ -103,4 +103,9 @@ public class ExamResponseServiceImpl implements ExamResponseService {
             examResponseRepository.save(response);
         }
     }
+    
+    @Override
+    public List<ExamResponse> getResponsesByAttempt(Long attemptId) {
+        return examResponseRepository.findByAttemptId(attemptId);
+    }
 }

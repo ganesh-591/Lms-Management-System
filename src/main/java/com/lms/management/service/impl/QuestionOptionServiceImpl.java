@@ -43,6 +43,26 @@ public class QuestionOptionServiceImpl
     public List<QuestionOption> getOptionsByQuestion(Long questionId) {
         return optionRepository.findByQuestionId(questionId);
     }
+    
+    @Override
+    public QuestionOption updateOption(
+            Long questionId,
+            Long optionId,
+            QuestionOption request) {
+
+        QuestionOption option = optionRepository.findById(optionId)
+                .orElseThrow(() ->
+                        new IllegalStateException("Option not found"));
+
+        if (!option.getQuestionId().equals(questionId)) {
+            throw new IllegalStateException("Invalid question mapping");
+        }
+
+        option.setOptionText(request.getOptionText());
+        option.setIsCorrect(request.getIsCorrect());
+
+        return optionRepository.save(option);
+    }
 
     @Override
     public void deleteOption(Long optionId) {

@@ -11,5 +11,10 @@ public interface ExamQuestionService {
 
     List<ExamQuestion> getQuestionsByExam(Long examId);
 
+    ExamQuestion updateExamQuestion(
+            Long examId,
+            Long examQuestionId,
+            ExamQuestion request);
+
     void removeExamQuestion(Long examQuestionId);
 }

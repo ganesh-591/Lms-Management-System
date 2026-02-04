@@ -58,6 +58,26 @@ public class ExamQuestionServiceImpl implements ExamQuestionService {
         return examQuestionRepository
                 .findByExamIdOrderByQuestionOrderAsc(examId);
     }
+    
+    @Override
+    public ExamQuestion updateExamQuestion(
+            Long examId,
+            Long examQuestionId,
+            ExamQuestion request) {
+
+        ExamQuestion existing = examQuestionRepository.findById(examQuestionId)
+                .orElseThrow(() ->
+                        new IllegalStateException("Exam question not found"));
+
+        if (!existing.getExamId().equals(examId)) {
+            throw new IllegalStateException("Invalid exam mapping");
+        }
+
+        existing.setMarks(request.getMarks());
+        existing.setQuestionOrder(request.getQuestionOrder());
+
+        return examQuestionRepository.save(existing);
+    }
 
     @Override
     public void removeExamQuestion(Long examQuestionId) {

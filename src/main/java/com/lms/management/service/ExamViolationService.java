@@ -1,5 +1,7 @@
 package com.lms.management.service;
 
+import java.util.List;
+
 import com.lms.management.model.ExamViolation;
 
 public interface ExamViolationService {
@@ -8,4 +10,6 @@ public interface ExamViolationService {
             Long attemptId, String violationType);
 
     long getViolationCount(Long attemptId);
+    
+    List<ExamViolation> getViolationsByAttempt(Long attemptId);
 }

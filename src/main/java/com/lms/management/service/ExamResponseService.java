@@ -1,5 +1,7 @@
 package com.lms.management.service;
 
+import java.util.List;
+
 import com.lms.management.model.ExamResponse;
 
 public interface ExamResponseService {
@@ -13,4 +15,6 @@ public interface ExamResponseService {
     );
 
     void autoEvaluateMcq(Long attemptId);
+    
+    List<ExamResponse> getResponsesByAttempt(Long attemptId);
 }

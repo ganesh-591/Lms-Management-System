@@ -1,6 +1,7 @@
 package com.lms.management.service.impl;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,4 +56,10 @@ public class ExamViolationServiceImpl
     public long getViolationCount(Long attemptId) {
         return examViolationRepository.countByAttemptId(attemptId);
     }
+    
+    @Override
+    public List<ExamViolation> getViolationsByAttempt(Long attemptId) {
+        return examViolationRepository.findByAttemptId(attemptId);
+    }
+
 }

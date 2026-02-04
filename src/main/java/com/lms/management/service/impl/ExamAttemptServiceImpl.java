@@ -2,6 +2,7 @@ package com.lms.management.service.impl;
 
 import java.time.LocalDateTime;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,39 +32,31 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
     }
 
     // ================= START ATTEMPT =================
-
     @Override
     public ExamAttempt startAttempt(Long examId, Long studentId) {
 
         Exam exam = examRepository.findById(examId)
-                .orElseThrow(() ->
-                        new IllegalStateException("Exam not found"));
+                .orElseThrow(() -> new IllegalStateException("Exam not found"));
 
         if (!"PUBLISHED".equals(exam.getStatus())) {
-            throw new IllegalStateException(
-                    "Exam is not available for attempt");
+            throw new IllegalStateException("Exam is not available for attempt");
         }
 
-        // ❌ Only one IN_PROGRESS attempt allowed
         if (examAttemptRepository.existsByExamIdAndStudentIdAndStatus(
                 examId, studentId, "IN_PROGRESS")) {
-            throw new IllegalStateException(
-                    "An active attempt already exists");
+            throw new IllegalStateException("An active attempt already exists");
         }
 
         int usedAttempts =
-                examAttemptRepository.countByExamIdAndStudentId(
-                        examId, studentId);
+                examAttemptRepository.countByExamIdAndStudentId(examId, studentId);
 
-        // ✅ FETCH ATTEMPTS FROM EXAM_SETTINGS (DB3)
         ExamSettings settings = examSettingsRepository
                 .findByExamId(examId)
                 .orElseThrow(() ->
                         new IllegalStateException("Exam settings not configured"));
 
         if (usedAttempts >= settings.getAttemptsAllowed()) {
-            throw new IllegalStateException(
-                    "No attempts left for this exam");
+            throw new IllegalStateException("No attempts left for this exam");
         }
 
         ExamAttempt attempt = new ExamAttempt();
@@ -77,17 +70,18 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
     }
 
     // ================= MANUAL SUBMIT =================
-
     @Override
-    public ExamAttempt submitAttempt(Long attemptId) {
+    public ExamAttempt submitAttempt(Long attemptId, Long studentId) {
 
         ExamAttempt attempt = examAttemptRepository.findById(attemptId)
-                .orElseThrow(() ->
-                        new IllegalStateException("Attempt not found"));
+                .orElseThrow(() -> new IllegalStateException("Attempt not found"));
+
+        if (!attempt.getStudentId().equals(studentId)) {
+            throw new AccessDeniedException("Attempt does not belong to this student");
+        }
 
         if (!"IN_PROGRESS".equals(attempt.getStatus())) {
-            throw new IllegalStateException(
-                    "Attempt cannot be submitted");
+            throw new IllegalStateException("Attempt cannot be submitted");
         }
 
         attempt.setStatus("SUBMITTED");
@@ -97,13 +91,15 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
     }
 
     // ================= AUTO SUBMIT =================
-
     @Override
-    public ExamAttempt autoSubmitAttempt(Long attemptId) {
+    public ExamAttempt autoSubmitAttempt(Long attemptId, Long studentId) {
 
         ExamAttempt attempt = examAttemptRepository.findById(attemptId)
-                .orElseThrow(() ->
-                        new IllegalStateException("Attempt not found"));
+                .orElseThrow(() -> new IllegalStateException("Attempt not found"));
+
+        if (!attempt.getStudentId().equals(studentId)) {
+            throw new AccessDeniedException("Attempt does not belong to this student");
+        }
 
         if (!"IN_PROGRESS".equals(attempt.getStatus())) {
             return attempt;
@@ -113,5 +109,19 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
         attempt.setEndTime(LocalDateTime.now());
 
         return examAttemptRepository.save(attempt);
+    }
+
+    // ================= GET ATTEMPT =================
+    @Override
+    public ExamAttempt getAttemptById(Long attemptId, Long studentId) {
+
+        ExamAttempt attempt = examAttemptRepository.findById(attemptId)
+                .orElseThrow(() -> new IllegalStateException("Attempt not found"));
+
+        if (!attempt.getStudentId().equals(studentId)) {
+            throw new AccessDeniedException("Attempt does not belong to this student");
+        }
+
+        return attempt;
     }
 }

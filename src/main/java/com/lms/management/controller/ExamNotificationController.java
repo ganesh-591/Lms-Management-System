@@ -38,5 +38,9 @@ public class ExamNotificationController {
 
         return ResponseEntity.ok(
                 examNotificationService.getNotificationByExamId(examId));
+        
+        
     }
+    
+    
 }

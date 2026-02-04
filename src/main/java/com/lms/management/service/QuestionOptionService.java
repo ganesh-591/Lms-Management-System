@@ -12,4 +12,9 @@ public interface QuestionOptionService {
     List<QuestionOption> getOptionsByQuestion(Long questionId);
 
     void deleteOption(Long optionId);
+    
+    QuestionOption updateOption(
+            Long questionId,
+            Long optionId,
+            QuestionOption request);
 }

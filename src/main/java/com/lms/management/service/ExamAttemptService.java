@@ -6,7 +6,9 @@ public interface ExamAttemptService {
 
     ExamAttempt startAttempt(Long examId, Long studentId);
 
-    ExamAttempt submitAttempt(Long attemptId);
+    ExamAttempt submitAttempt(Long attemptId, Long studentId);
 
-    ExamAttempt autoSubmitAttempt(Long attemptId);
+    ExamAttempt autoSubmitAttempt(Long attemptId, Long studentId);
+
+    ExamAttempt getAttemptById(Long attemptId, Long studentId);
 }

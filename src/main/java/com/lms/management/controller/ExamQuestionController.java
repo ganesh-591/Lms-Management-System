@@ -4,7 +4,14 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.lms.management.model.ExamQuestion;
 import com.lms.management.service.ExamQuestionService;
@@ -40,6 +47,20 @@ public class ExamQuestionController {
 
         return ResponseEntity.ok(
                 examQuestionService.getQuestionsByExam(examId));
+    }
+    
+    // ================= UPDATE MARKS / ORDER =================
+    @PutMapping("/{examQuestionId}")
+    @PreAuthorize("hasAuthority('EXAM_QUESTION_MANAGE')")
+    public ResponseEntity<?> updateQuestion(
+            @PathVariable Long examId,
+            @PathVariable Long examQuestionId,
+            @RequestBody ExamQuestion request) {
+
+        return ResponseEntity.ok(
+                examQuestionService.updateExamQuestion(
+                        examId, examQuestionId, request)
+        );
     }
 
     // Remove question from exam
