@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,7 +30,11 @@ public class ExamResponseController {
     @PostMapping
     public ResponseEntity<ExamResponse> saveResponse(
             @PathVariable Long attemptId,
-            @RequestBody ExamResponse request) {
+            @RequestBody ExamResponse request,
+            Authentication authentication) {
+
+        // student identity comes from JWT (TEMP mapping)
+        extractStudentId(authentication);
 
         return ResponseEntity.ok(
                 examResponseService.saveOrUpdateResponse(
@@ -42,11 +47,14 @@ public class ExamResponseController {
         );
     }
 
-    // ================= GET RESPONSES (RESUME / EVALUATION VIEW) =================
+    // ================= GET RESPONSES =================
     @GetMapping
     @PreAuthorize("hasAuthority('EXAM_RESPONSE_VIEW_SELF')")
     public ResponseEntity<List<ExamResponse>> getResponses(
-            @PathVariable Long attemptId) {
+            @PathVariable Long attemptId,
+            Authentication authentication) {
+
+        extractStudentId(authentication);
 
         return ResponseEntity.ok(
                 examResponseService.getResponsesByAttempt(attemptId)
@@ -64,13 +72,16 @@ public class ExamResponseController {
         );
     }
 
-    // ================= MANUAL EVALUATION (DESCRIPTIVE / CODING) =================
+    // ================= MANUAL EVALUATION =================
     @PostMapping("/{responseId}/evaluate")
     @PreAuthorize("hasAuthority('EXAM_RESPONSE_EVALUATE')")
     public ResponseEntity<ExamResponse> evaluateResponse(
             @PathVariable Long attemptId,
             @PathVariable Long responseId,
-            @RequestParam Double marks) {
+            @RequestParam Double marks,
+            Authentication authentication) {
+
+        extractEvaluatorId(authentication);
 
         return ResponseEntity.ok(
                 examResponseService.evaluateResponse(
@@ -79,5 +90,16 @@ public class ExamResponseController {
                         marks
                 )
         );
+    }
+
+    // ================= TEMP ID EXTRACTION =================
+    private Long extractStudentId(Authentication authentication) {
+        // TEMP until real user mapping
+        return 1L;
+    }
+
+    private Long extractEvaluatorId(Authentication authentication) {
+        // TEMP admin / instructor
+        return 1L;
     }
 }

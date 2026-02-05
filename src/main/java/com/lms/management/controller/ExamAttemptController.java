@@ -1,11 +1,11 @@
 package com.lms.management.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.lms.management.model.ExamAttempt;
@@ -22,11 +22,12 @@ public class ExamAttemptController {
     }
 
     // ================= START ATTEMPT =================
-    // TEST ONLY: studentId passed manually
     @PostMapping("/start")
     public ResponseEntity<ExamAttempt> startAttempt(
             @PathVariable Long examId,
-            @RequestParam Long studentId) {
+            Authentication authentication) {
+
+        Long studentId = extractStudentId(authentication);
 
         return ResponseEntity.ok(
             examAttemptService.startAttempt(examId, studentId)
@@ -37,7 +38,9 @@ public class ExamAttemptController {
     @PostMapping("/{attemptId}/submit")
     public ResponseEntity<ExamAttempt> submitAttempt(
             @PathVariable Long attemptId,
-            @RequestParam Long studentId) {
+            Authentication authentication) {
+
+        Long studentId = extractStudentId(authentication);
 
         return ResponseEntity.ok(
             examAttemptService.submitAttempt(attemptId, studentId)
@@ -45,11 +48,12 @@ public class ExamAttemptController {
     }
 
     // ================= AUTO SUBMIT =================
-    // SYSTEM / TEST ONLY
     @PostMapping("/{attemptId}/auto-submit")
     public ResponseEntity<ExamAttempt> autoSubmitAttempt(
             @PathVariable Long attemptId,
-            @RequestParam Long studentId) {
+            Authentication authentication) {
+
+        Long studentId = extractStudentId(authentication);
 
         return ResponseEntity.ok(
             examAttemptService.autoSubmitAttempt(attemptId, studentId)
@@ -57,7 +61,7 @@ public class ExamAttemptController {
     }
 
     // ================= EVALUATE ATTEMPT =================
-    // SYSTEM / ADMIN
+    // SYSTEM / ADMIN (JWT role validation later)
     @PostMapping("/{attemptId}/evaluate")
     public ResponseEntity<?> evaluateAttempt(
             @PathVariable Long attemptId) {
@@ -72,21 +76,33 @@ public class ExamAttemptController {
     @GetMapping("/{attemptId}")
     public ResponseEntity<ExamAttempt> getAttempt(
             @PathVariable Long attemptId,
-            @RequestParam Long studentId) {
+            Authentication authentication) {
+
+        Long studentId = extractStudentId(authentication);
 
         return ResponseEntity.ok(
             examAttemptService.getAttemptById(attemptId, studentId)
         );
     }
 
-    // ================= GET RESULT (READ ONLY) =================
+    // ================= GET RESULT =================
     @GetMapping("/{attemptId}/result")
     public ResponseEntity<?> getResult(
             @PathVariable Long attemptId,
-            @RequestParam Long studentId) {
+            Authentication authentication) {
+
+        Long studentId = extractStudentId(authentication);
 
         return ResponseEntity.ok(
             examAttemptService.getResult(attemptId, studentId)
         );
+    }
+
+    // ================= TEMP ID EXTRACTION =================
+    // This will be replaced when real User table / mapping is added
+    private Long extractStudentId(Authentication authentication) {
+        // currently JWT username/email → mapped manually
+        // example: admin@gmail.com → studentId = 1 (TEMP)
+        return 1L;
     }
 }
