@@ -15,6 +15,13 @@ public interface ExamResponseService {
     );
 
     void autoEvaluateMcq(Long attemptId);
-    
+
     List<ExamResponse> getResponsesByAttempt(Long attemptId);
+
+    // ================= MANUAL EVALUATION =================
+    ExamResponse evaluateResponse(
+            Long attemptId,
+            Long responseId,
+            Double marks
+    );
 }

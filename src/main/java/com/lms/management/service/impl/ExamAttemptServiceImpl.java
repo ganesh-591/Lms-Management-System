@@ -1,6 +1,9 @@
 package com.lms.management.service.impl;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -8,11 +11,18 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.lms.management.model.Exam;
 import com.lms.management.model.ExamAttempt;
+import com.lms.management.model.ExamGrading;
+import com.lms.management.model.ExamQuestion;
+import com.lms.management.model.ExamResponse;
 import com.lms.management.model.ExamSettings;
 import com.lms.management.repository.ExamAttemptRepository;
+import com.lms.management.repository.ExamGradingRepository;
+import com.lms.management.repository.ExamQuestionRepository;
 import com.lms.management.repository.ExamRepository;
+import com.lms.management.repository.ExamResponseRepository;
 import com.lms.management.repository.ExamSettingsRepository;
 import com.lms.management.service.ExamAttemptService;
+import com.lms.management.service.ExamResponseService;
 
 @Service
 @Transactional
@@ -21,14 +31,27 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
     private final ExamAttemptRepository examAttemptRepository;
     private final ExamRepository examRepository;
     private final ExamSettingsRepository examSettingsRepository;
+    private final ExamQuestionRepository examQuestionRepository;
+    private final ExamResponseService examResponseService;
+    private final ExamResponseRepository examResponseRepository;
+    private final ExamGradingRepository examGradingRepository; // ✅ NEW
 
     public ExamAttemptServiceImpl(
             ExamAttemptRepository examAttemptRepository,
             ExamRepository examRepository,
-            ExamSettingsRepository examSettingsRepository) {
+            ExamSettingsRepository examSettingsRepository,
+            ExamQuestionRepository examQuestionRepository,
+            ExamResponseService examResponseService,
+            ExamResponseRepository examResponseRepository,
+            ExamGradingRepository examGradingRepository) { // ✅ NEW
+
         this.examAttemptRepository = examAttemptRepository;
         this.examRepository = examRepository;
         this.examSettingsRepository = examSettingsRepository;
+        this.examQuestionRepository = examQuestionRepository;
+        this.examResponseService = examResponseService;
+        this.examResponseRepository = examResponseRepository;
+        this.examGradingRepository = examGradingRepository;
     }
 
     // ================= START ATTEMPT =================
@@ -40,6 +63,13 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
 
         if (!"PUBLISHED".equals(exam.getStatus())) {
             throw new IllegalStateException("Exam is not available for attempt");
+        }
+
+        List<ExamQuestion> questions =
+                examQuestionRepository.findByExamIdOrderByQuestionOrderAsc(examId);
+
+        if (questions.isEmpty()) {
+            throw new IllegalStateException("Cannot start exam without questions");
         }
 
         if (examAttemptRepository.existsByExamIdAndStudentIdAndStatus(
@@ -109,6 +139,76 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
         attempt.setEndTime(LocalDateTime.now());
 
         return examAttemptRepository.save(attempt);
+    }
+
+    // ================= EVALUATE ATTEMPT =================
+    @Override
+    public void evaluateAttempt(Long attemptId) {
+
+        ExamAttempt attempt = examAttemptRepository.findById(attemptId)
+                .orElseThrow(() -> new IllegalStateException("Attempt not found"));
+
+        if (!"SUBMITTED".equals(attempt.getStatus())
+                && !"AUTO_SUBMITTED".equals(attempt.getStatus())) {
+            throw new IllegalStateException("Attempt not ready for evaluation");
+        }
+
+        examResponseService.autoEvaluateMcq(attemptId);
+
+        List<ExamResponse> responses =
+                examResponseRepository.findByAttemptId(attemptId);
+
+        double totalScore = responses.stream()
+                .map(ExamResponse::getMarksAwarded)
+                .filter(m -> m != null)
+                .mapToDouble(Double::doubleValue)
+                .sum();
+
+        attempt.setScore(totalScore);
+        attempt.setStatus("EVALUATED");
+
+        examAttemptRepository.save(attempt);
+    }
+
+    // ================= GET RESULT =================
+    @Override
+    public Object getResult(Long attemptId, Long studentId) {
+
+        ExamAttempt attempt = examAttemptRepository.findById(attemptId)
+                .orElseThrow(() -> new IllegalStateException("Attempt not found"));
+
+        if (!attempt.getStudentId().equals(studentId)) {
+            throw new AccessDeniedException("Attempt does not belong to this student");
+        }
+
+        if (!"EVALUATED".equals(attempt.getStatus())) {
+            throw new IllegalStateException("Result not available yet");
+        }
+
+        Exam exam = examRepository.findById(attempt.getExamId())
+                .orElseThrow();
+
+        ExamGrading grading = examGradingRepository
+                .findByExamId(exam.getExamId())
+                .orElseThrow(() ->
+                        new IllegalStateException("Grading not configured"));
+
+        double percentage =
+                (attempt.getScore() / exam.getTotalMarks()) * 100;
+
+        boolean passed =
+                percentage >= exam.getPassPercentage();
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("attemptId", attemptId);
+        result.put("percentage", percentage);
+        result.put("passed", passed);
+
+        if (grading.getShowResult()) {
+            result.put("score", attempt.getScore());
+        }
+
+        return result;
     }
 
     // ================= GET ATTEMPT =================

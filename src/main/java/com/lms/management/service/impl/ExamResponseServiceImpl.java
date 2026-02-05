@@ -37,7 +37,6 @@ public class ExamResponseServiceImpl implements ExamResponseService {
     }
 
     // ================= SAVE / UPDATE RESPONSE =================
-
     @Override
     public ExamResponse saveOrUpdateResponse(
             Long attemptId,
@@ -47,11 +46,17 @@ public class ExamResponseServiceImpl implements ExamResponseService {
             String codingSubmissionPath) {
 
         ExamAttempt attempt = examAttemptRepository.findById(attemptId)
-                .orElseThrow(() ->
-                        new IllegalStateException("Attempt not found"));
+                .orElseThrow(() -> new IllegalStateException("Attempt not found"));
 
         if (!"IN_PROGRESS".equals(attempt.getStatus())) {
             throw new IllegalStateException("Cannot modify responses");
+        }
+
+        ExamQuestion examQuestion = examQuestionRepository.findById(examQuestionId)
+                .orElseThrow(() -> new IllegalStateException("Exam question not found"));
+
+        if (!examQuestion.getExamId().equals(attempt.getExamId())) {
+            throw new IllegalStateException("Question does not belong to this exam");
         }
 
         ExamResponse response = examResponseRepository
@@ -68,9 +73,16 @@ public class ExamResponseServiceImpl implements ExamResponseService {
     }
 
     // ================= AUTO EVALUATE MCQ =================
-
     @Override
     public void autoEvaluateMcq(Long attemptId) {
+
+        ExamAttempt attempt = examAttemptRepository.findById(attemptId)
+                .orElseThrow(() -> new IllegalStateException("Attempt not found"));
+
+        if (!"SUBMITTED".equals(attempt.getStatus())
+                && !"AUTO_SUBMITTED".equals(attempt.getStatus())) {
+            throw new IllegalStateException("Attempt not ready for evaluation");
+        }
 
         List<ExamResponse> responses =
                 examResponseRepository.findByAttemptId(attemptId);
@@ -86,24 +98,47 @@ public class ExamResponseServiceImpl implements ExamResponseService {
                             response.getSelectedOptionId())
                             .orElseThrow();
 
-            if (option.getIsCorrect()) {
+            ExamQuestion examQuestion =
+                    examQuestionRepository.findById(
+                            response.getExamQuestionId())
+                            .orElseThrow();
 
-                ExamQuestion examQuestion =
-                        examQuestionRepository.findById(
-                                response.getExamQuestionId())
-                                .orElseThrow();
-
-                response.setMarksAwarded(
-                        examQuestion.getMarks());
-            } else {
-                response.setMarksAwarded(0.0);
-            }
+            response.setMarksAwarded(
+                    option.getIsCorrect() ? examQuestion.getMarks() : 0.0);
 
             response.setEvaluationType("AUTO");
             examResponseRepository.save(response);
         }
     }
-    
+
+    // ================= MANUAL EVALUATION =================
+    @Override
+    public ExamResponse evaluateResponse(
+            Long attemptId,
+            Long responseId,
+            Double marks) {
+
+        ExamAttempt attempt = examAttemptRepository.findById(attemptId)
+                .orElseThrow(() -> new IllegalStateException("Attempt not found"));
+
+        if (!"SUBMITTED".equals(attempt.getStatus())
+                && !"AUTO_SUBMITTED".equals(attempt.getStatus())) {
+            throw new IllegalStateException("Attempt not ready for manual evaluation");
+        }
+
+        ExamResponse response = examResponseRepository.findById(responseId)
+                .orElseThrow(() -> new IllegalStateException("Response not found"));
+
+        if (!response.getAttemptId().equals(attemptId)) {
+            throw new IllegalStateException("Response does not belong to this attempt");
+        }
+
+        response.setMarksAwarded(marks);
+        response.setEvaluationType("MANUAL");
+
+        return examResponseRepository.save(response);
+    }
+
     @Override
     public List<ExamResponse> getResponsesByAttempt(Long attemptId) {
         return examResponseRepository.findByAttemptId(attemptId);

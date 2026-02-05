@@ -33,7 +33,6 @@ public class ExamAttemptController {
         );
     }
 
-
     // ================= SUBMIT ATTEMPT =================
     @PostMapping("/{attemptId}/submit")
     public ResponseEntity<ExamAttempt> submitAttempt(
@@ -57,8 +56,19 @@ public class ExamAttemptController {
         );
     }
 
-    
- // ================= GET ATTEMPT STATUS =================
+    // ================= EVALUATE ATTEMPT =================
+    // SYSTEM / ADMIN
+    @PostMapping("/{attemptId}/evaluate")
+    public ResponseEntity<?> evaluateAttempt(
+            @PathVariable Long attemptId) {
+
+        examAttemptService.evaluateAttempt(attemptId);
+        return ResponseEntity.ok(
+            java.util.Map.of("status", "Evaluation triggered")
+        );
+    }
+
+    // ================= GET ATTEMPT =================
     @GetMapping("/{attemptId}")
     public ResponseEntity<ExamAttempt> getAttempt(
             @PathVariable Long attemptId,
@@ -66,6 +76,17 @@ public class ExamAttemptController {
 
         return ResponseEntity.ok(
             examAttemptService.getAttemptById(attemptId, studentId)
+        );
+    }
+
+    // ================= GET RESULT (READ ONLY) =================
+    @GetMapping("/{attemptId}/result")
+    public ResponseEntity<?> getResult(
+            @PathVariable Long attemptId,
+            @RequestParam Long studentId) {
+
+        return ResponseEntity.ok(
+            examAttemptService.getResult(attemptId, studentId)
         );
     }
 }
