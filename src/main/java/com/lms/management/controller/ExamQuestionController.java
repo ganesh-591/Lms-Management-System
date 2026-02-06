@@ -1,6 +1,7 @@
 package com.lms.management.controller;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -72,4 +73,14 @@ public class ExamQuestionController {
         examQuestionService.removeExamQuestion(examQuestionId);
         return ResponseEntity.noContent().build();
     }
+    
+    @GetMapping("/view")
+    @PreAuthorize("hasAuthority('EXAM_ATTEMPT_START')")
+    public ResponseEntity<List<Map<String, Object>>> getExamQuestionsForStudent(
+            @PathVariable Long examId) {
+
+        return ResponseEntity.ok(
+                examQuestionService.getExamQuestionsForStudent(examId)
+        );
+    }  
 }

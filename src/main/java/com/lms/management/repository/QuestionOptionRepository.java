@@ -12,6 +12,7 @@ public interface QuestionOptionRepository
         extends JpaRepository<QuestionOption, Long> {
 
     List<QuestionOption> findByQuestionId(Long questionId);
+    
 
     boolean existsByQuestionIdAndOptionText(
             Long questionId, String optionText);

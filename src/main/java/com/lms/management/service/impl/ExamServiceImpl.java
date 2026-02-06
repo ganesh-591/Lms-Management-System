@@ -55,6 +55,13 @@ public class ExamServiceImpl implements ExamService {
 
         return examRepository.save(exam);
     }
+    
+    @Override
+    public List<Exam> getAllExams() {
+        return examRepository.findAll();
+    }
+    
+    
     @Override
     public Exam publishExam(Long examId) {
         Exam exam = getExamById(examId);

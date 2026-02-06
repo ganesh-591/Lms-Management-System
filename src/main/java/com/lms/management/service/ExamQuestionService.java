@@ -1,6 +1,7 @@
 package com.lms.management.service;
 
 import java.util.List;
+import java.util.Map;
 
 import com.lms.management.model.ExamQuestion;
 
@@ -17,4 +18,6 @@ public interface ExamQuestionService {
             ExamQuestion request);
 
     void removeExamQuestion(Long examQuestionId);
+    
+    List<Map<String, Object>> getExamQuestionsForStudent(Long examId);
 }

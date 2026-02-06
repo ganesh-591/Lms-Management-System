@@ -13,6 +13,8 @@ public interface ExamService {
     Exam closeExam(Long examId);
 
     Exam getExamById(Long examId);
+    
+    List<Exam> getAllExams();
 
     List<Exam> getExamsByCourseId(Long courseId);
 
