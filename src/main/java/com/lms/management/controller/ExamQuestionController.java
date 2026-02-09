@@ -23,12 +23,11 @@ public class ExamQuestionController {
 
     private final ExamQuestionService examQuestionService;
 
-    public ExamQuestionController(
-            ExamQuestionService examQuestionService) {
+    public ExamQuestionController(ExamQuestionService examQuestionService) {
         this.examQuestionService = examQuestionService;
     }
 
-    // Add questions to exam
+    // ================= ADD QUESTIONS (ADMIN) =================
     @PostMapping
     @PreAuthorize("hasAuthority('EXAM_QUESTION_MANAGE')")
     public ResponseEntity<List<ExamQuestion>> addQuestions(
@@ -36,24 +35,26 @@ public class ExamQuestionController {
             @RequestBody List<ExamQuestion> questions) {
 
         return ResponseEntity.ok(
-                examQuestionService.addQuestions(
-                        examId, questions));
+                examQuestionService.addQuestions(examId, questions)
+        );
     }
 
-    // Get questions of exam
+    // ================= GET QUESTIONS (SAFE READ – ADMIN / STUDENT) =================
+    // 🔴 IMPORTANT: DO NOT return ExamQuestion entity
     @GetMapping
     @PreAuthorize("hasAuthority('EXAM_QUESTION_VIEW')")
-    public ResponseEntity<List<ExamQuestion>> getQuestions(
+    public ResponseEntity<List<Map<String, Object>>> getQuestions(
             @PathVariable Long examId) {
 
         return ResponseEntity.ok(
-                examQuestionService.getQuestionsByExam(examId));
+                examQuestionService.getExamQuestionsForStudent(examId)
+        );
     }
-    
+
     // ================= UPDATE MARKS / ORDER =================
     @PutMapping("/{examQuestionId}")
     @PreAuthorize("hasAuthority('EXAM_QUESTION_MANAGE')")
-    public ResponseEntity<?> updateQuestion(
+    public ResponseEntity<ExamQuestion> updateQuestion(
             @PathVariable Long examId,
             @PathVariable Long examQuestionId,
             @RequestBody ExamQuestion request) {
@@ -64,7 +65,7 @@ public class ExamQuestionController {
         );
     }
 
-    // Remove question from exam
+    // ================= REMOVE QUESTION =================
     @DeleteMapping("/{examQuestionId}")
     @PreAuthorize("hasAuthority('EXAM_QUESTION_MANAGE')")
     public ResponseEntity<Void> removeQuestion(
@@ -73,7 +74,8 @@ public class ExamQuestionController {
         examQuestionService.removeExamQuestion(examQuestionId);
         return ResponseEntity.noContent().build();
     }
-    
+
+    // ================= STUDENT VIEW (OPTIONAL – CAN KEEP OR REMOVE) =================
     @GetMapping("/view")
     @PreAuthorize("hasAuthority('EXAM_ATTEMPT_START')")
     public ResponseEntity<List<Map<String, Object>>> getExamQuestionsForStudent(
@@ -82,5 +84,5 @@ public class ExamQuestionController {
         return ResponseEntity.ok(
                 examQuestionService.getExamQuestionsForStudent(examId)
         );
-    }  
+    }
 }

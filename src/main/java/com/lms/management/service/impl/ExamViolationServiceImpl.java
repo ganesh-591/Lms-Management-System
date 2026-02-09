@@ -44,9 +44,9 @@ public class ExamViolationServiceImpl implements ExamViolationService {
         ExamAttempt attempt = examAttemptRepository.findById(attemptId)
                 .orElseThrow(() -> new IllegalStateException("Attempt not found"));
 
+        // If already auto-submitted / submitted, ignore silently
         if (!"IN_PROGRESS".equals(attempt.getStatus())) {
-            throw new IllegalStateException(
-                    "Cannot record violation for this attempt");
+            return null;
         }
 
         ExamViolation violation = new ExamViolation();
@@ -65,8 +65,8 @@ public class ExamViolationServiceImpl implements ExamViolationService {
 
             long count = examViolationRepository.countByAttemptId(attemptId);
 
-            if (count > proctoring.getViolationLimit()) {
-                // system-triggered auto submit
+            // Trigger auto-submit as soon as limit is reached
+            if (count >= proctoring.getViolationLimit()) {
                 examAttemptService.autoSubmitAttempt(
                         attemptId,
                         attempt.getStudentId()

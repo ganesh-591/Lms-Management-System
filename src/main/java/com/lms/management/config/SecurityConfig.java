@@ -25,26 +25,27 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
-            // ✅ ENABLE CORS
             .cors(cors -> {})
             .csrf(csrf -> csrf.disable())
 
             .authorizeHttpRequests(auth -> auth
 
-            	    // ✅ ALLOW PREFLIGHT (PUT / PATCH / DELETE)
-            	    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                // ✅ ALLOW PREFLIGHT
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-            	    // ✅ PUBLIC STATIC
-            	    .requestMatchers("/uploads/**").permitAll()
-            	    .requestMatchers("/api/courses/share/**").permitAll()
-            	    .requestMatchers("/api/content-files/preview/**").permitAll()
-            	    .requestMatchers("/api/attendance/summary/**").permitAll()
+                // ✅ PUBLIC STATIC
+                .requestMatchers("/uploads/**").permitAll()
+                .requestMatchers("/api/courses/share/**").permitAll()
+                .requestMatchers("/api/content-files/preview/**").permitAll()
+                .requestMatchers("/api/attendance/summary/**").permitAll()
 
-            	    // 🔐 EVERYTHING ELSE NEEDS JWT
-            	    .anyRequest().authenticated()
-            	            )
+                // ✅ ALLOW FEE SERVICE TO READ COURSE DATA
+                .requestMatchers(HttpMethod.GET, "/api/courses/**").permitAll()
 
-            // JWT FILTER
+                // 🔐 EVERYTHING ELSE NEEDS JWT
+                .anyRequest().authenticated()
+            )
+
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

@@ -25,8 +25,19 @@ public class ExamQuestion {
     @Column(name = "exam_id", nullable = false)
     private Long examId;
 
+    // 🔑 FK column (still exists)
     @Column(name = "question_id", nullable = false)
     private Long questionId;
+
+    // ✅ JPA relationship (READ-ONLY, SAFE)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+        name = "question_id",
+        referencedColumnName = "question_id",
+        insertable = false,
+        updatable = false
+    )
+    private Question question;
 
     @Column(name = "marks", nullable = false)
     private Double marks;

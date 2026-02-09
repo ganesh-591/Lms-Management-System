@@ -1,6 +1,7 @@
 package com.lms.management.controller;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -62,6 +63,7 @@ public class ExamResponseController {
     }
 
     // ================= AUTO EVALUATE MCQ =================
+   
     @PostMapping("/auto-evaluate")
     public ResponseEntity<?> autoEvaluateMcq(
             @PathVariable Long attemptId) {
@@ -73,6 +75,7 @@ public class ExamResponseController {
     }
 
     // ================= MANUAL EVALUATION =================
+    
     @PostMapping("/{responseId}/evaluate")
     @PreAuthorize("hasAuthority('EXAM_RESPONSE_EVALUATE')")
     public ResponseEntity<ExamResponse> evaluateResponse(
@@ -89,6 +92,17 @@ public class ExamResponseController {
                         responseId,
                         marks
                 )
+        );
+    }
+ // ================= CODING RESPONSES (EVALUATOR VIEW) =================
+    @GetMapping("/coding-responses")
+    @PreAuthorize("hasAuthority('EXAM_RESPONSE_EVALUATE')")
+    public ResponseEntity<List<Map<String, Object>>> getCodingResponses(
+            @PathVariable Long attemptId) {
+
+        return ResponseEntity.ok(
+                examResponseService
+                        .getCodingResponsesForEvaluation(attemptId)
         );
     }
 

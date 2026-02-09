@@ -128,12 +128,10 @@ public class ExamQuestionServiceImpl implements ExamQuestionService {
                         .findByQuestionId(question.getQuestionId())
                         .stream()
                         .map(opt -> Map.of(
-                            "optionId", opt.getOptionId(),
-                            "optionText", opt.getOptionText(),
-                            "optionText", opt.getOptionText(),
-                            "optionText", opt.getOptionText(),
-                            "optionText", opt.getOptionText()
-                        ))
+                        	    "optionId", opt.getOptionId(),
+                        	    "optionText", opt.getOptionText()
+                        	))
+
                         .toList()
                 );
             }

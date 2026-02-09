@@ -1,6 +1,9 @@
 package com.lms.management.service.impl;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -8,11 +11,13 @@ import org.springframework.transaction.annotation.Transactional;
 import com.lms.management.model.ExamAttempt;
 import com.lms.management.model.ExamQuestion;
 import com.lms.management.model.ExamResponse;
+import com.lms.management.model.Question;
 import com.lms.management.model.QuestionOption;
 import com.lms.management.repository.ExamAttemptRepository;
 import com.lms.management.repository.ExamQuestionRepository;
 import com.lms.management.repository.ExamResponseRepository;
 import com.lms.management.repository.QuestionOptionRepository;
+import com.lms.management.repository.QuestionRepository;
 import com.lms.management.service.ExamResponseService;
 
 @Service
@@ -23,17 +28,20 @@ public class ExamResponseServiceImpl implements ExamResponseService {
     private final ExamAttemptRepository examAttemptRepository;
     private final ExamQuestionRepository examQuestionRepository;
     private final QuestionOptionRepository questionOptionRepository;
+    private final QuestionRepository questionRepository;
 
     public ExamResponseServiceImpl(
             ExamResponseRepository examResponseRepository,
             ExamAttemptRepository examAttemptRepository,
             ExamQuestionRepository examQuestionRepository,
-            QuestionOptionRepository questionOptionRepository) {
+            QuestionOptionRepository questionOptionRepository,
+            QuestionRepository questionRepository) {
 
         this.examResponseRepository = examResponseRepository;
         this.examAttemptRepository = examAttemptRepository;
         this.examQuestionRepository = examQuestionRepository;
         this.questionOptionRepository = questionOptionRepository;
+        this.questionRepository = questionRepository;
     }
 
     // ================= SAVE / UPDATE RESPONSE =================
@@ -61,13 +69,37 @@ public class ExamResponseServiceImpl implements ExamResponseService {
 
         ExamResponse response = examResponseRepository
                 .findByAttemptIdAndExamQuestionId(attemptId, examQuestionId)
-                .orElse(new ExamResponse());
+                .orElseThrow(() ->
+                        new IllegalStateException("Question not assigned to this attempt"));
 
-        response.setAttemptId(attemptId);
-        response.setExamQuestionId(examQuestionId);
-        response.setSelectedOptionId(selectedOptionId);
-        response.setDescriptiveAnswer(descriptiveAnswer);
-        response.setCodingSubmissionPath(codingSubmissionPath);
+        Question question = questionRepository
+                .findById(examQuestion.getQuestionId())
+                .orElseThrow();
+
+        // 🔒 STRICT TYPE-BASED SAVE
+        switch (question.getQuestionType()) {
+
+            case "MCQ":
+                response.setSelectedOptionId(selectedOptionId);
+                response.setDescriptiveAnswer(null);
+                response.setCodingSubmissionPath(null);
+                break;
+
+            case "DESCRIPTIVE":
+                response.setDescriptiveAnswer(descriptiveAnswer);
+                response.setSelectedOptionId(null);
+                response.setCodingSubmissionPath(null);
+                break;
+
+            case "CODING":
+                response.setCodingSubmissionPath(codingSubmissionPath);
+                response.setSelectedOptionId(null);
+                response.setDescriptiveAnswer(null);
+                break;
+
+            default:
+                throw new IllegalStateException("Unsupported question type");
+        }
 
         return examResponseRepository.save(response);
     }
@@ -139,8 +171,98 @@ public class ExamResponseServiceImpl implements ExamResponseService {
         return examResponseRepository.save(response);
     }
 
+    // ================= GET RESPONSES =================
     @Override
     public List<ExamResponse> getResponsesByAttempt(Long attemptId) {
         return examResponseRepository.findByAttemptId(attemptId);
     }
+
+    // ================= DESCRIPTIVE EVALUATION VIEW =================
+    @Override
+    public List<Map<String, Object>> getDescriptiveResponsesForEvaluation(Long attemptId) {
+
+        examAttemptRepository.findById(attemptId)
+                .orElseThrow(() -> new IllegalStateException("Attempt not found"));
+
+        List<ExamResponse> responses =
+                examResponseRepository.findByAttemptId(attemptId);
+
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        for (ExamResponse response : responses) {
+
+            ExamQuestion examQuestion =
+                    examQuestionRepository.findById(
+                            response.getExamQuestionId())
+                            .orElseThrow();
+
+            Question question =
+                    questionRepository.findById(
+                            examQuestion.getQuestionId())
+                            .orElseThrow();
+
+            if (!"DESCRIPTIVE".equals(question.getQuestionType())) {
+                continue;
+            }
+
+            Map<String, Object> row = new HashMap<>();
+            row.put("responseId", response.getResponseId());
+            row.put("examQuestionId", examQuestion.getExamQuestionId());
+            row.put("questionText", question.getQuestionText());
+            row.put("maxMarks", examQuestion.getMarks());
+            row.put("studentAnswer", response.getDescriptiveAnswer());
+            row.put("marksAwarded", response.getMarksAwarded());
+
+            result.add(row);
+        }
+
+        return result;
+    }
+    
+ // ================= CODING EVALUATION VIEW =================
+    @Override
+    public List<Map<String, Object>> getCodingResponsesForEvaluation(Long attemptId) {
+
+        examAttemptRepository.findById(attemptId)
+                .orElseThrow(() -> new IllegalStateException("Attempt not found"));
+
+        List<ExamResponse> responses =
+                examResponseRepository.findByAttemptId(attemptId);
+
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        for (ExamResponse response : responses) {
+
+            if (response.getCodingSubmissionPath() == null) {
+                continue;
+            }
+
+            ExamQuestion examQuestion =
+                    examQuestionRepository.findById(
+                            response.getExamQuestionId())
+                            .orElseThrow();
+
+            Question question =
+                    questionRepository.findById(
+                            examQuestion.getQuestionId())
+                            .orElseThrow();
+
+            if (!"CODING".equals(question.getQuestionType())) {
+                continue;
+            }
+
+            Map<String, Object> row = new HashMap<>();
+            row.put("responseId", response.getResponseId());
+            row.put("examQuestionId", examQuestion.getExamQuestionId());
+            row.put("questionText", question.getQuestionText());
+            row.put("maxMarks", examQuestion.getMarks());
+            row.put("submissionPath", response.getCodingSubmissionPath());
+            row.put("marksAwarded", response.getMarksAwarded());
+
+            result.add(row);
+        }
+
+        return result;
+    }
+
 }

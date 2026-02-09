@@ -1,6 +1,7 @@
 package com.lms.management.service;
 
 import java.util.List;
+import java.util.Map;
 
 import com.lms.management.model.ExamResponse;
 
@@ -11,17 +12,19 @@ public interface ExamResponseService {
             Long examQuestionId,
             Long selectedOptionId,
             String descriptiveAnswer,
-            String codingSubmissionPath
-    );
+            String codingSubmissionPath);
 
     void autoEvaluateMcq(Long attemptId);
 
-    List<ExamResponse> getResponsesByAttempt(Long attemptId);
-
-    // ================= MANUAL EVALUATION =================
     ExamResponse evaluateResponse(
             Long attemptId,
             Long responseId,
-            Double marks
-    );
+            Double marks);
+
+    List<ExamResponse> getResponsesByAttempt(Long attemptId);
+
+    // ✅ ADD THIS (DESCRIPTIVE READ VIEW)
+    List<Map<String, Object>> getDescriptiveResponsesForEvaluation(Long attemptId);
+    
+    List<Map<String, Object>> getCodingResponsesForEvaluation(Long attemptId);
 }
