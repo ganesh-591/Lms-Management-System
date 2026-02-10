@@ -8,8 +8,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.lms.management.model.ExamAttempt;
 import com.lms.management.model.ExamEvaluationLog;
+import com.lms.management.model.ExamResponse;
 import com.lms.management.repository.ExamAttemptRepository;
 import com.lms.management.repository.ExamEvaluationLogRepository;
+import com.lms.management.repository.ExamResponseRepository;
 import com.lms.management.service.ExamEvaluationLogService;
 
 @Service
@@ -19,16 +21,19 @@ public class ExamEvaluationLogServiceImpl
 
     private final ExamEvaluationLogRepository evaluationLogRepository;
     private final ExamAttemptRepository examAttemptRepository;
+    private final ExamResponseRepository examResponseRepository;
 
     public ExamEvaluationLogServiceImpl(
             ExamEvaluationLogRepository evaluationLogRepository,
-            ExamAttemptRepository examAttemptRepository) {
+            ExamAttemptRepository examAttemptRepository,
+            ExamResponseRepository examResponseRepository) {
+
         this.evaluationLogRepository = evaluationLogRepository;
         this.examAttemptRepository = examAttemptRepository;
+        this.examResponseRepository = examResponseRepository;
     }
 
     // ================= LOG SCORE CHANGE =================
-
     @Override
     public ExamEvaluationLog logEvaluationChange(
             Long attemptId,
@@ -41,7 +46,6 @@ public class ExamEvaluationLogServiceImpl
                 .orElseThrow(() ->
                         new IllegalStateException("Attempt not found"));
 
-        // Only after submission
         if (!"SUBMITTED".equals(attempt.getStatus())
                 && !"AUTO_SUBMITTED".equals(attempt.getStatus())
                 && !"EVALUATED".equals(attempt.getStatus())) {
@@ -61,9 +65,41 @@ public class ExamEvaluationLogServiceImpl
     }
 
     // ================= FETCH AUDIT LOGS =================
-
     @Override
     public List<ExamEvaluationLog> getLogsByAttempt(Long attemptId) {
         return evaluationLogRepository.findByAttemptId(attemptId);
+    }
+
+    // ================= CALCULATE CURRENT SCORE =================
+    @Override
+    public Double getCurrentScore(Long attemptId) {
+
+        return examResponseRepository.findByAttemptId(attemptId)
+                .stream()
+                .mapToDouble(r ->
+                        r.getMarksAwarded() == null ? 0.0 : r.getMarksAwarded()
+                )
+                .sum();
+    }
+
+    // ================= EVALUATE CODING RESPONSE =================
+    @Override
+    public void evaluateCodingResponse(
+            Long attemptId,
+            Long responseId,
+            Double marks) {
+
+        ExamResponse response = examResponseRepository.findById(responseId)
+                .orElseThrow(() ->
+                        new IllegalStateException("Response not found"));
+
+        if (!response.getAttemptId().equals(attemptId)) {
+            throw new IllegalStateException("Response does not belong to attempt");
+        }
+
+        response.setMarksAwarded(marks);
+        response.setEvaluationType("MANUAL");
+
+        examResponseRepository.save(response);
     }
 }

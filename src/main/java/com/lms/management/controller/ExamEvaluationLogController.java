@@ -61,6 +61,50 @@ public class ExamEvaluationLogController {
                 examEvaluationLogService.getLogsByAttempt(attemptId)
         );
     }
+    
+   
+    @PostMapping("/coding-evaluate/{responseId}")
+    @PreAuthorize("hasAuthority('EXAM_RESPONSE_EVALUATE')")
+    public ResponseEntity<?> evaluateCodingResponse(
+            @PathVariable Long attemptId,
+            @PathVariable Long responseId,
+            @RequestBody Map<String, Object> body,
+            Authentication authentication) {
+
+        Long evaluatorId = extractEvaluatorId(authentication);
+
+        Double marks = Double.valueOf(body.get("marks").toString());
+        String reason = body.getOrDefault("reason", "Coding evaluation")
+                            .toString();
+
+        // 1️⃣ Get old score BEFORE evaluation
+        Double oldScore =
+                examEvaluationLogService.getCurrentScore(attemptId);
+
+        // 2️⃣ Update response marks (reuse existing logic)
+        examEvaluationLogService.evaluateCodingResponse(
+                attemptId,
+                responseId,
+                marks
+        );
+
+        // 3️⃣ Get new score AFTER evaluation
+        Double newScore =
+                examEvaluationLogService.getCurrentScore(attemptId);
+
+        // 4️⃣ Log evaluation change
+        examEvaluationLogService.logEvaluationChange(
+                attemptId,
+                evaluatorId,
+                oldScore,
+                newScore,
+                reason
+        );
+
+        return ResponseEntity.ok(
+                Map.of("status", "Coding evaluated successfully")
+        );
+    }
 
     // ================= TEMP ID EXTRACTION =================
     private Long extractEvaluatorId(Authentication authentication) {
