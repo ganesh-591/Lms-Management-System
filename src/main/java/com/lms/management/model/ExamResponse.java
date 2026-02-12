@@ -28,18 +28,19 @@ public class ExamResponse {
     @Column(name = "exam_question_id", nullable = false)
     private Long examQuestionId;
 
-    // MCQ
+    // ================= MCQ =================
     @Column(name = "selected_option_id")
     private Long selectedOptionId;
 
-    // Descriptive
+    // ================= DESCRIPTIVE =================
     @Column(name = "descriptive_answer", columnDefinition = "TEXT")
     private String descriptiveAnswer;
 
-    // Coding
-    @Column(name = "coding_submission_path")
-    private String codingSubmissionPath;
+    // ================= CODING (ENTERPRISE READY) =================
+    @Column(name = "coding_submission_code", columnDefinition = "LONGTEXT")
+    private String codingSubmissionCode;
 
+    // ================= EVALUATION =================
     @Column(name = "marks_awarded")
     private Double marksAwarded;
 

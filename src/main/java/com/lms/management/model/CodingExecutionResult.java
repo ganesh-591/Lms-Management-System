@@ -5,12 +5,19 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "coding_execution_result")
+@Table(
+        name = "coding_execution_result",
+        indexes = {
+            @Index(name = "idx_response", columnList = "responseId"),
+            @Index(name = "idx_testcase", columnList = "testCaseId")
+        }
+)
 @Getter
 @Setter
 public class CodingExecutionResult {
@@ -31,8 +38,11 @@ public class CodingExecutionResult {
     @Column(nullable = false)
     private Boolean passed;
 
-    // ✅ STEP 2 ADDITIONS
-    @Column(nullable = false)
+    // ✅ NEW FIELD (Enterprise Upgrade)
+    @Column(name = "execution_status", nullable = false, length = 20)
+    private String executionStatus;
+
+    @Column
     private Long executionTimeMs;
 
     @Column(columnDefinition = "TEXT")

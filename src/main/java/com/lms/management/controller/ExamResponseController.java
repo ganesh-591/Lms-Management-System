@@ -34,7 +34,6 @@ public class ExamResponseController {
             @RequestBody ExamResponse request,
             Authentication authentication) {
 
-        // student identity comes from JWT (TEMP mapping)
         extractStudentId(authentication);
 
         return ResponseEntity.ok(
@@ -43,7 +42,7 @@ public class ExamResponseController {
                         request.getExamQuestionId(),
                         request.getSelectedOptionId(),
                         request.getDescriptiveAnswer(),
-                        request.getCodingSubmissionPath()
+                        request.getCodingSubmissionCode()   // ✅ FIXED
                 )
         );
     }
@@ -63,19 +62,19 @@ public class ExamResponseController {
     }
 
     // ================= AUTO EVALUATE MCQ =================
-   
     @PostMapping("/auto-evaluate")
+    @PreAuthorize("hasAuthority('EXAM_RESPONSE_EVALUATE')")
     public ResponseEntity<?> autoEvaluateMcq(
             @PathVariable Long attemptId) {
 
         examResponseService.autoEvaluateMcq(attemptId);
+
         return ResponseEntity.ok(
-                java.util.Map.of("status", "MCQ evaluation completed")
+                Map.of("status", "MCQ evaluation completed")
         );
     }
 
     // ================= MANUAL EVALUATION =================
-    
     @PostMapping("/{responseId}/evaluate")
     @PreAuthorize("hasAuthority('EXAM_RESPONSE_EVALUATE')")
     public ResponseEntity<ExamResponse> evaluateResponse(
@@ -94,26 +93,24 @@ public class ExamResponseController {
                 )
         );
     }
- // ================= CODING RESPONSES (EVALUATOR VIEW) =================
+
+    // ================= CODING RESPONSES (EVALUATOR VIEW) =================
     @GetMapping("/coding-responses")
     @PreAuthorize("hasAuthority('EXAM_RESPONSE_EVALUATE')")
     public ResponseEntity<List<Map<String, Object>>> getCodingResponses(
             @PathVariable Long attemptId) {
 
         return ResponseEntity.ok(
-                examResponseService
-                        .getCodingResponsesForEvaluation(attemptId)
+                examResponseService.getCodingResponsesForEvaluation(attemptId)
         );
     }
 
     // ================= TEMP ID EXTRACTION =================
     private Long extractStudentId(Authentication authentication) {
-        // TEMP until real user mapping
-        return 1L;
+        return 1L; // TODO: Replace with JWT extraction
     }
 
     private Long extractEvaluatorId(Authentication authentication) {
-        // TEMP admin / instructor
-        return 1L;
+        return 1L; // TODO: Replace with JWT extraction
     }
 }

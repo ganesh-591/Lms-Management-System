@@ -21,6 +21,7 @@ import com.lms.management.repository.ExamQuestionRepository;
 import com.lms.management.repository.ExamRepository;
 import com.lms.management.repository.ExamResponseRepository;
 import com.lms.management.repository.ExamSettingsRepository;
+import com.lms.management.service.CodingExecutionService;
 import com.lms.management.service.ExamAttemptService;
 import com.lms.management.service.ExamResponseService;
 
@@ -35,6 +36,7 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
     private final ExamResponseService examResponseService;
     private final ExamResponseRepository examResponseRepository;
     private final ExamGradingRepository examGradingRepository;
+    private final CodingExecutionService codingExecutionService;
 
     public ExamAttemptServiceImpl(
             ExamAttemptRepository examAttemptRepository,
@@ -43,7 +45,8 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
             ExamQuestionRepository examQuestionRepository,
             ExamResponseService examResponseService,
             ExamResponseRepository examResponseRepository,
-            ExamGradingRepository examGradingRepository) {
+            ExamGradingRepository examGradingRepository,
+            CodingExecutionService codingExecutionService) {
 
         this.examAttemptRepository = examAttemptRepository;
         this.examRepository = examRepository;
@@ -52,22 +55,21 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
         this.examResponseService = examResponseService;
         this.examResponseRepository = examResponseRepository;
         this.examGradingRepository = examGradingRepository;
+        this.codingExecutionService = codingExecutionService;
     }
 
     // ================= TIMEOUT CHECK =================
     private void checkAndAutoSubmitIfExpired(ExamAttempt attempt) {
 
-        if (!"IN_PROGRESS".equals(attempt.getStatus())) {
-            return;
-        }
+        if (!"IN_PROGRESS".equals(attempt.getStatus())) return;
 
         Exam exam = examRepository.findById(attempt.getExamId())
                 .orElseThrow(() -> new IllegalStateException("Exam not found"));
 
-        LocalDateTime expiryTime =
+        LocalDateTime expiry =
                 attempt.getStartTime().plusMinutes(exam.getDurationMinutes());
 
-        if (LocalDateTime.now().isAfter(expiryTime)) {
+        if (LocalDateTime.now().isAfter(expiry)) {
             autoSubmitAttempt(attempt.getAttemptId(), attempt.getStudentId());
         }
     }
@@ -80,19 +82,19 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
                 .orElseThrow(() -> new IllegalStateException("Exam not found"));
 
         if (!"PUBLISHED".equals(exam.getStatus())) {
-            throw new IllegalStateException("Exam is not available for attempt");
+            throw new IllegalStateException("Exam not available");
         }
 
         List<ExamQuestion> questions =
                 examQuestionRepository.findByExamIdOrderByQuestionOrderAsc(examId);
 
         if (questions.isEmpty()) {
-            throw new IllegalStateException("Cannot start exam without questions");
+            throw new IllegalStateException("No questions in exam");
         }
 
         if (examAttemptRepository.existsByExamIdAndStudentIdAndStatus(
                 examId, studentId, "IN_PROGRESS")) {
-            throw new IllegalStateException("An active attempt already exists");
+            throw new IllegalStateException("Active attempt exists");
         }
 
         int usedAttempts =
@@ -100,11 +102,10 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
 
         ExamSettings settings = examSettingsRepository
                 .findByExamId(examId)
-                .orElseThrow(() ->
-                        new IllegalStateException("Exam settings not configured"));
+                .orElseThrow(() -> new IllegalStateException("Settings missing"));
 
         if (usedAttempts >= settings.getAttemptsAllowed()) {
-            throw new IllegalStateException("No attempts left for this exam");
+            throw new IllegalStateException("No attempts left");
         }
 
         ExamAttempt attempt = new ExamAttempt();
@@ -116,20 +117,19 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
 
         attempt = examAttemptRepository.save(attempt);
 
-        // 🔒 Bind questions to attempt
-        for (ExamQuestion question : questions) {
-            ExamResponse response = new ExamResponse();
-            response.setAttemptId(attempt.getAttemptId());
-            response.setExamQuestionId(question.getExamQuestionId());
-            response.setMarksAwarded(0.0);
-            response.setEvaluationType(null);
-            examResponseRepository.save(response);
+        // Bind responses
+        for (ExamQuestion q : questions) {
+            ExamResponse r = new ExamResponse();
+            r.setAttemptId(attempt.getAttemptId());
+            r.setExamQuestionId(q.getExamQuestionId());
+            r.setMarksAwarded(0.0);
+            examResponseRepository.save(r);
         }
 
         return attempt;
     }
 
-    // ================= MANUAL SUBMIT =================
+    // ================= SUBMIT =================
     @Override
     public ExamAttempt submitAttempt(Long attemptId, Long studentId) {
 
@@ -137,13 +137,13 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
                 .orElseThrow(() -> new IllegalStateException("Attempt not found"));
 
         if (!attempt.getStudentId().equals(studentId)) {
-            throw new AccessDeniedException("Attempt does not belong to this student");
+            throw new AccessDeniedException("Not your attempt");
         }
 
         checkAndAutoSubmitIfExpired(attempt);
 
         if (!"IN_PROGRESS".equals(attempt.getStatus())) {
-            throw new IllegalStateException("Attempt cannot be submitted");
+            throw new IllegalStateException("Cannot submit");
         }
 
         attempt.setStatus("SUBMITTED");
@@ -160,12 +160,10 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
                 .orElseThrow(() -> new IllegalStateException("Attempt not found"));
 
         if (!attempt.getStudentId().equals(studentId)) {
-            throw new AccessDeniedException("Attempt does not belong to this student");
+            throw new AccessDeniedException("Not your attempt");
         }
 
-        if (!"IN_PROGRESS".equals(attempt.getStatus())) {
-            return attempt;
-        }
+        if (!"IN_PROGRESS".equals(attempt.getStatus())) return attempt;
 
         attempt.setStatus("AUTO_SUBMITTED");
         attempt.setEndTime(LocalDateTime.now());
@@ -173,7 +171,7 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
         return examAttemptRepository.save(attempt);
     }
 
-    // ================= EVALUATE ATTEMPT =================
+    // ================= ENTERPRISE EVALUATION =================
     @Override
     public void evaluateAttempt(Long attemptId) {
 
@@ -182,13 +180,26 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
 
         if (!"SUBMITTED".equals(attempt.getStatus())
                 && !"AUTO_SUBMITTED".equals(attempt.getStatus())) {
-            throw new IllegalStateException("Attempt not ready for evaluation");
+            throw new IllegalStateException("Not ready for evaluation");
         }
 
+        // 1️⃣ MCQ
         examResponseService.autoEvaluateMcq(attemptId);
 
+        // 2️⃣ CODING
         List<ExamResponse> responses =
                 examResponseRepository.findByAttemptId(attemptId);
+
+        for (ExamResponse r : responses) {
+            if (r.getCodingSubmissionCode() != null
+                    && !r.getCodingSubmissionCode().isBlank()) {
+
+                codingExecutionService.runSubmission(r.getResponseId());
+            }
+        }
+
+        // 3️⃣ Recalculate total score
+        responses = examResponseRepository.findByAttemptId(attemptId);
 
         double totalScore = responses.stream()
                 .map(ExamResponse::getMarksAwarded)
@@ -202,7 +213,7 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
         examAttemptRepository.save(attempt);
     }
 
-    // ================= GET RESULT =================
+    // ================= RESULT =================
     @Override
     public Object getResult(Long attemptId, Long studentId) {
 
@@ -210,13 +221,11 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
                 .orElseThrow(() -> new IllegalStateException("Attempt not found"));
 
         if (!attempt.getStudentId().equals(studentId)) {
-            throw new AccessDeniedException("Attempt does not belong to this student");
+            throw new AccessDeniedException("Not your attempt");
         }
 
-        checkAndAutoSubmitIfExpired(attempt);
-
         if (!"EVALUATED".equals(attempt.getStatus())) {
-            throw new IllegalStateException("Result not available yet");
+            throw new IllegalStateException("Result not available");
         }
 
         Exam exam = examRepository.findById(attempt.getExamId())
@@ -224,8 +233,7 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
 
         ExamGrading grading = examGradingRepository
                 .findByExamId(exam.getExamId())
-                .orElseThrow(() ->
-                        new IllegalStateException("Grading not configured"));
+                .orElseThrow();
 
         double percentage =
                 (attempt.getScore() / exam.getTotalMarks()) * 100;
@@ -236,28 +244,16 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
         List<ExamResponse> responses =
                 examResponseRepository.findByAttemptId(attemptId);
 
-        long totalQuestions = responses.size();
-
-        long attemptedCount = responses.stream()
-                .filter(r -> r.getSelectedOptionId() != null
-                        || r.getDescriptiveAnswer() != null
-                        || r.getCodingSubmissionPath() != null)
+        long attempted = responses.stream()
+                .filter(r ->
+                        r.getSelectedOptionId() != null ||
+                        r.getDescriptiveAnswer() != null ||
+                        r.getCodingSubmissionCode() != null)
                 .count();
-
-        long correctCount = responses.stream()
-                .filter(r -> "AUTO".equals(r.getEvaluationType())
-                        && r.getMarksAwarded() != null
-                        && r.getMarksAwarded() > 0)
-                .count();
-
-        long wrongCount = attemptedCount - correctCount;
 
         Map<String, Object> result = new HashMap<>();
         result.put("attemptId", attemptId);
-        result.put("totalQuestions", totalQuestions);
-        result.put("attemptedCount", attemptedCount);
-        result.put("correctCount", correctCount);
-        result.put("wrongCount", wrongCount);
+        result.put("attemptedCount", attempted);
         result.put("percentage", percentage);
         result.put("passed", passed);
 
@@ -268,7 +264,6 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
         return result;
     }
 
-    // ================= GET ATTEMPT =================
     @Override
     public ExamAttempt getAttemptById(Long attemptId, Long studentId) {
 
@@ -276,10 +271,8 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
                 .orElseThrow(() -> new IllegalStateException("Attempt not found"));
 
         if (!attempt.getStudentId().equals(studentId)) {
-            throw new AccessDeniedException("Attempt does not belong to this student");
+            throw new AccessDeniedException("Not your attempt");
         }
-
-        checkAndAutoSubmitIfExpired(attempt);
 
         return attempt;
     }

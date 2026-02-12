@@ -51,7 +51,7 @@ public class ExamResponseServiceImpl implements ExamResponseService {
             Long examQuestionId,
             Long selectedOptionId,
             String descriptiveAnswer,
-            String codingSubmissionPath) {
+            String codingSubmissionCode) {
 
         ExamAttempt attempt = examAttemptRepository.findById(attemptId)
                 .orElseThrow(() -> new IllegalStateException("Attempt not found"));
@@ -82,17 +82,17 @@ public class ExamResponseServiceImpl implements ExamResponseService {
             case "MCQ":
                 response.setSelectedOptionId(selectedOptionId);
                 response.setDescriptiveAnswer(null);
-                response.setCodingSubmissionPath(null);
+                response.setCodingSubmissionCode(null);
                 break;
 
             case "DESCRIPTIVE":
                 response.setDescriptiveAnswer(descriptiveAnswer);
                 response.setSelectedOptionId(null);
-                response.setCodingSubmissionPath(null);
+                response.setCodingSubmissionCode(null);
                 break;
 
             case "CODING":
-                response.setCodingSubmissionPath(codingSubmissionPath);
+                response.setCodingSubmissionCode(codingSubmissionCode);
                 response.setSelectedOptionId(null);
                 response.setDescriptiveAnswer(null);
                 break;
@@ -207,7 +207,6 @@ public class ExamResponseServiceImpl implements ExamResponseService {
 
             Map<String, Object> row = new HashMap<>();
             row.put("responseId", response.getResponseId());
-            row.put("examQuestionId", examQuestion.getExamQuestionId());
             row.put("questionText", question.getQuestionText());
             row.put("maxMarks", examQuestion.getMarks());
             row.put("studentAnswer", response.getDescriptiveAnswer());
@@ -218,8 +217,8 @@ public class ExamResponseServiceImpl implements ExamResponseService {
 
         return result;
     }
-    
- // ================= CODING EVALUATION VIEW =================
+
+    // ================= CODING EVALUATION VIEW =================
     @Override
     public List<Map<String, Object>> getCodingResponsesForEvaluation(Long attemptId) {
 
@@ -233,7 +232,7 @@ public class ExamResponseServiceImpl implements ExamResponseService {
 
         for (ExamResponse response : responses) {
 
-            if (response.getCodingSubmissionPath() == null) {
+            if (response.getCodingSubmissionCode() == null) {
                 continue;
             }
 
@@ -253,10 +252,9 @@ public class ExamResponseServiceImpl implements ExamResponseService {
 
             Map<String, Object> row = new HashMap<>();
             row.put("responseId", response.getResponseId());
-            row.put("examQuestionId", examQuestion.getExamQuestionId());
             row.put("questionText", question.getQuestionText());
             row.put("maxMarks", examQuestion.getMarks());
-            row.put("submissionPath", response.getCodingSubmissionPath());
+            row.put("submissionCode", response.getCodingSubmissionCode());
             row.put("marksAwarded", response.getMarksAwarded());
 
             result.add(row);
@@ -264,5 +262,4 @@ public class ExamResponseServiceImpl implements ExamResponseService {
 
         return result;
     }
-
 }
