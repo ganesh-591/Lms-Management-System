@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.lms.management.model.ExamAttempt;
+import com.lms.management.service.EvaluationAsyncService;
 import com.lms.management.service.ExamAttemptService;
 
 @RestController
@@ -16,12 +17,16 @@ import com.lms.management.service.ExamAttemptService;
 public class ExamAttemptController {
 
     private final ExamAttemptService examAttemptService;
+    private final EvaluationAsyncService evaluationAsyncService;
 
-    public ExamAttemptController(ExamAttemptService examAttemptService) {
+    public ExamAttemptController(
+            ExamAttemptService examAttemptService,
+            EvaluationAsyncService evaluationAsyncService) {
+
         this.examAttemptService = examAttemptService;
+        this.evaluationAsyncService = evaluationAsyncService;
     }
 
-    // ================= START ATTEMPT =================
     @PostMapping("/start")
     public ResponseEntity<ExamAttempt> startAttempt(
             @PathVariable Long examId,
@@ -30,11 +35,10 @@ public class ExamAttemptController {
         Long studentId = extractStudentId(authentication);
 
         return ResponseEntity.ok(
-            examAttemptService.startAttempt(examId, studentId)
+                examAttemptService.startAttempt(examId, studentId)
         );
     }
 
-    // ================= SUBMIT ATTEMPT =================
     @PostMapping("/{attemptId}/submit")
     public ResponseEntity<ExamAttempt> submitAttempt(
             @PathVariable Long attemptId,
@@ -42,12 +46,16 @@ public class ExamAttemptController {
 
         Long studentId = extractStudentId(authentication);
 
-        return ResponseEntity.ok(
-            examAttemptService.submitAttempt(attemptId, studentId)
+        ExamAttempt attempt =
+                examAttemptService.submitAttempt(attemptId, studentId);
+
+        evaluationAsyncService.evaluateAttemptAsync(
+                attempt.getAttemptId()
         );
+
+        return ResponseEntity.ok(attempt);
     }
 
-    // ================= AUTO SUBMIT =================
     @PostMapping("/{attemptId}/auto-submit")
     public ResponseEntity<ExamAttempt> autoSubmitAttempt(
             @PathVariable Long attemptId,
@@ -55,24 +63,27 @@ public class ExamAttemptController {
 
         Long studentId = extractStudentId(authentication);
 
-        return ResponseEntity.ok(
-            examAttemptService.autoSubmitAttempt(attemptId, studentId)
+        ExamAttempt attempt =
+                examAttemptService.autoSubmitAttempt(attemptId, studentId);
+
+        evaluationAsyncService.evaluateAttemptAsync(
+                attempt.getAttemptId()
         );
+
+        return ResponseEntity.ok(attempt);
     }
 
-    // ================= EVALUATE ATTEMPT =================
-    // SYSTEM / ADMIN (JWT role validation later)
     @PostMapping("/{attemptId}/evaluate")
     public ResponseEntity<?> evaluateAttempt(
             @PathVariable Long attemptId) {
 
-        examAttemptService.evaluateAttempt(attemptId);
+        evaluationAsyncService.evaluateAttemptAsync(attemptId);
+
         return ResponseEntity.ok(
-            java.util.Map.of("status", "Evaluation triggered")
+                java.util.Map.of("status", "Evaluation started in background")
         );
     }
 
-    // ================= GET ATTEMPT =================
     @GetMapping("/{attemptId}")
     public ResponseEntity<ExamAttempt> getAttempt(
             @PathVariable Long attemptId,
@@ -81,11 +92,10 @@ public class ExamAttemptController {
         Long studentId = extractStudentId(authentication);
 
         return ResponseEntity.ok(
-            examAttemptService.getAttemptById(attemptId, studentId)
+                examAttemptService.getAttemptById(attemptId, studentId)
         );
     }
 
-    // ================= GET RESULT =================
     @GetMapping("/{attemptId}/result")
     public ResponseEntity<?> getResult(
             @PathVariable Long attemptId,
@@ -94,15 +104,26 @@ public class ExamAttemptController {
         Long studentId = extractStudentId(authentication);
 
         return ResponseEntity.ok(
-            examAttemptService.getResult(attemptId, studentId)
+                examAttemptService.getResult(attemptId, studentId)
         );
     }
 
-    // ================= TEMP ID EXTRACTION =================
-    // This will be replaced when real User table / mapping is added
     private Long extractStudentId(Authentication authentication) {
-        // currently JWT username/email → mapped manually
-        // example: admin@gmail.com → studentId = 1 (TEMP)
         return 1L;
+    }
+    
+    @GetMapping("/{attemptId}/status")
+    public ResponseEntity<?> getAttemptStatus(
+            @PathVariable Long attemptId,
+            Authentication authentication) {
+
+        Long studentId = extractStudentId(authentication);
+
+        ExamAttempt attempt =
+                examAttemptService.getAttemptById(attemptId, studentId);
+
+        return ResponseEntity.ok(
+                java.util.Map.of("status", attempt.getStatus())
+        );
     }
 }

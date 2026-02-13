@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 import org.springframework.stereotype.Service;
@@ -35,6 +36,9 @@ public class CodingExecutionServiceImpl implements CodingExecutionService {
     private final CodingExecutionResultRepository executionResultRepository;
     private final ExamQuestionRepository examQuestionRepository;
 
+    // Limit max 5 parallel executions
+    private final Semaphore executionLimiter = new Semaphore(5);
+
     public CodingExecutionServiceImpl(
             ExamResponseRepository examResponseRepository,
             CodingTestCaseRepository codingTestCaseRepository,
@@ -50,136 +54,110 @@ public class CodingExecutionServiceImpl implements CodingExecutionService {
     @Override
     public void runSubmission(Long responseId) {
 
-        ExamResponse response = examResponseRepository.findById(responseId)
-                .orElseThrow(() -> new IllegalStateException("Response not found"));
+        try {
+            executionLimiter.acquire();
 
-        if (response.getCodingSubmissionCode() == null
-                || response.getCodingSubmissionCode().isBlank()) {
-            throw new IllegalStateException("No code submitted");
-        }
+            ExamResponse response = examResponseRepository.findById(responseId)
+                    .orElseThrow(() -> new IllegalStateException("Response not found"));
 
-        ExamQuestion examQuestion = examQuestionRepository
-                .findById(response.getExamQuestionId())
-                .orElseThrow();
+            if (response.getCodingSubmissionCode() == null ||
+                response.getCodingSubmissionCode().isBlank()) {
+                throw new IllegalStateException("No code submitted");
+            }
 
-        ProgrammingLanguage language =
-                examQuestion.getQuestion().getProgrammingLanguage();
+            ExamQuestion examQuestion = examQuestionRepository
+                    .findById(response.getExamQuestionId())
+                    .orElseThrow(() -> new IllegalStateException("ExamQuestion not found"));
 
-        List<CodingTestCase> testCases =
-                codingTestCaseRepository.findByQuestionId(
-                        examQuestion.getQuestionId());
+            ProgrammingLanguage language =
+                    examQuestion.getQuestion().getProgrammingLanguage();
 
-        executionResultRepository.findByResponseId(responseId)
-                .forEach(executionResultRepository::delete);
+            List<CodingTestCase> testCases =
+                    codingTestCaseRepository.findByQuestionId(
+                            examQuestion.getQuestionId());
 
-        int passedCount = 0;
+            executionResultRepository.findByResponseId(responseId)
+                    .forEach(executionResultRepository::delete);
 
-        for (CodingTestCase testCase : testCases) {
+            int passedCount = 0;
 
-            long startTime = System.currentTimeMillis();
+            for (CodingTestCase testCase : testCases) {
 
-            String output = null;
-            String error = null;
-            String status = "WA";
-            boolean passed = false;
+                long startTime = System.currentTimeMillis();
 
-            try {
+                ProcessResult result;
+                try {
+                    result = executeInDocker(
+                            response.getCodingSubmissionCode(),
+                            language,
+                            testCase.getInputData()
+                    );
+                } catch (Exception e) {
+                    result = new ProcessResult(null, e.getMessage(), -1, false);
+                }
 
-                ProcessResult result = executeInDocker(
-                        response.getCodingSubmissionCode(),
-                        language,
-                        testCase.getInputData()
-                );
-
-                output = result.getStdout();
-                error = result.getStderr();
+                String status;
+                boolean passed = false;
 
                 if (result.isTimeout()) {
                     status = "TLE";
                 }
                 else if (result.getExitCode() != 0) {
-                    if (error != null && error.toLowerCase().contains("error")) {
-                        status = "CE";
-                    } else {
-                        status = "RE";
-                    }
+                    status = "RE";
+                }
+                else if (result.getStdout() != null &&
+                        result.getStdout().trim()
+                                .equals(testCase.getExpectedOutput().trim())) {
+                    status = "AC";
+                    passed = true;
                 }
                 else {
-                    if (output != null &&
-                            output.trim().equals(testCase.getExpectedOutput().trim())) {
-                        status = "AC";
-                        passed = true;
-                    } else {
-                        status = "WA";
-                    }
+                    status = "WA";
                 }
 
-            } catch (Exception e) {
-                error = e.getMessage();
-                status = "RE";
+                if (passed) passedCount++;
+
+                CodingExecutionResult entity = new CodingExecutionResult();
+                entity.setResponseId(responseId);
+                entity.setTestCaseId(testCase.getTestCaseId());
+                entity.setActualOutput(result.getStdout());
+                entity.setErrorMessage(result.getStderr());
+                entity.setExecutionStatus(status);
+                entity.setPassed(passed);
+                entity.setExecutionTimeMs(
+                        System.currentTimeMillis() - startTime
+                );
+
+                executionResultRepository.save(entity);
             }
 
-            long executionTime =
-                    System.currentTimeMillis() - startTime;
+            double marks =
+                    testCases.isEmpty() ? 0 :
+                    ((double) passedCount / testCases.size())
+                            * examQuestion.getMarks();
 
-            if (passed) passedCount++;
+            response.setMarksAwarded(marks);
+            response.setEvaluationType("AUTO");
+            examResponseRepository.save(response);
 
-            CodingExecutionResult resultEntity = new CodingExecutionResult();
-            resultEntity.setResponseId(responseId);
-            resultEntity.setTestCaseId(testCase.getTestCaseId());
-            resultEntity.setActualOutput(output);
-            resultEntity.setPassed(passed);
-            resultEntity.setExecutionStatus(status);
-            resultEntity.setExecutionTimeMs(executionTime);
-            resultEntity.setErrorMessage(error);
-
-            executionResultRepository.save(resultEntity);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Execution interrupted", e);
         }
-
-        double maxMarks = examQuestion.getMarks();
-        double calculatedMarks =
-                ((double) passedCount / testCases.size()) * maxMarks;
-
-        response.setMarksAwarded(calculatedMarks);
-        response.setEvaluationType("AUTO");
-        examResponseRepository.save(response);
-    }
-
-    // ================= PROCESS RESULT HOLDER =================
-
-    private static class ProcessResult {
-        private final String stdout;
-        private final String stderr;
-        private final int exitCode;
-        private final boolean timeout;
-
-        public ProcessResult(String stdout, String stderr,
-                             int exitCode, boolean timeout) {
-            this.stdout = stdout;
-            this.stderr = stderr;
-            this.exitCode = exitCode;
-            this.timeout = timeout;
+        finally {
+            executionLimiter.release();
         }
-
-        public String getStdout() { return stdout; }
-        public String getStderr() { return stderr; }
-        public int getExitCode() { return exitCode; }
-        public boolean isTimeout() { return timeout; }
     }
-
-    // ================= DOCKER EXECUTION =================
 
     private ProcessResult executeInDocker(
             String code,
             ProgrammingLanguage language,
             String input) throws Exception {
 
-        String folderName = "exec_" + UUID.randomUUID();
-        Path tempDir = Files.createTempDirectory(folderName);
+        Path tempDir = Files.createTempDirectory("exec_" + UUID.randomUUID());
 
         String fileName = getFileName(language);
-        Path sourceFile = tempDir.resolve(fileName);
-        Files.writeString(sourceFile, code);
+        Files.writeString(tempDir.resolve(fileName), code);
 
         String dockerCommand = buildDockerCommand(
                 language,
@@ -195,8 +173,12 @@ public class CodingExecutionServiceImpl implements CodingExecutionService {
         try (BufferedWriter writer =
                      new BufferedWriter(
                              new OutputStreamWriter(process.getOutputStream()))) {
-            writer.write(input);
-            writer.flush();
+
+            if (input != null && !input.isBlank()) {
+                writer.write(input);
+                writer.newLine();
+                writer.flush();
+            }
         }
 
         boolean finished =
@@ -210,7 +192,6 @@ public class CodingExecutionServiceImpl implements CodingExecutionService {
 
         String stdout = readStream(process.getInputStream());
         String stderr = readStream(process.getErrorStream());
-
         int exitCode = process.exitValue();
 
         deleteDirectory(tempDir);
@@ -239,7 +220,6 @@ public class CodingExecutionServiceImpl implements CodingExecutionService {
         }
     }
 
-    // 🔥 FIXED (removed --read-only)
     private String buildDockerCommand(
             ProgrammingLanguage language,
             String hostPath,
@@ -247,8 +227,8 @@ public class CodingExecutionServiceImpl implements CodingExecutionService {
 
         String base =
                 "docker run --rm --memory=256m --cpus=0.5 " +
-                "--pids-limit=64 " +
-                "--network=none -v \"" + hostPath + "\":/app -w /app ";
+                "--pids-limit=64 --network=none " +
+                "-v \"" + hostPath + "\":/app -w /app ";
 
         switch (language) {
 
@@ -285,6 +265,28 @@ public class CodingExecutionServiceImpl implements CodingExecutionService {
                 });
     }
 
+    private static class ProcessResult {
+
+        private final String stdout;
+        private final String stderr;
+        private final int exitCode;
+        private final boolean timeout;
+
+        public ProcessResult(String stdout,
+                             String stderr,
+                             int exitCode,
+                             boolean timeout) {
+            this.stdout = stdout;
+            this.stderr = stderr;
+            this.exitCode = exitCode;
+            this.timeout = timeout;
+        }
+
+        public String getStdout() { return stdout; }
+        public String getStderr() { return stderr; }
+        public int getExitCode() { return exitCode; }
+        public boolean isTimeout() { return timeout; }
+    }
     @Override
     public List<CodingExecutionResult> getResultsByResponse(Long responseId) {
         return executionResultRepository.findByResponseId(responseId);

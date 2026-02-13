@@ -28,17 +28,16 @@ public class ExamQuestionServiceImpl implements ExamQuestionService {
 
     public ExamQuestionServiceImpl(
             ExamQuestionRepository examQuestionRepository,
-            ExamRepository examRepository,          // ✅ ADD THIS
+            ExamRepository examRepository,
             QuestionRepository questionRepository,
             QuestionOptionRepository questionOptionRepository
     ) {
         this.examQuestionRepository = examQuestionRepository;
-        this.examRepository = examRepository;       // ✅ ADD THIS
+        this.examRepository = examRepository;
         this.questionRepository = questionRepository;
         this.questionOptionRepository = questionOptionRepository;
     }
-    
-    
+
     @Override
     public List<ExamQuestion> addQuestions(
             Long examId, List<ExamQuestion> questions) {
@@ -72,7 +71,7 @@ public class ExamQuestionServiceImpl implements ExamQuestionService {
         return examQuestionRepository
                 .findByExamIdOrderByQuestionOrderAsc(examId);
     }
-    
+
     @Override
     public ExamQuestion updateExamQuestion(
             Long examId,
@@ -97,13 +96,13 @@ public class ExamQuestionServiceImpl implements ExamQuestionService {
     public void removeExamQuestion(Long examQuestionId) {
         examQuestionRepository.deleteById(examQuestionId);
     }
-    
+
     @Override
     public List<Map<String, Object>> getExamQuestionsForStudent(Long examId) {
 
         List<ExamQuestion> examQuestions =
                 examQuestionRepository
-                    .findByExamIdOrderByQuestionOrderAsc(examId);
+                        .findByExamIdOrderByQuestionOrderAsc(examId);
 
         List<Map<String, Object>> result = new ArrayList<>();
 
@@ -121,18 +120,21 @@ public class ExamQuestionServiceImpl implements ExamQuestionService {
             q.put("marks", eq.getMarks());
             q.put("questionOrder", eq.getQuestionOrder());
 
-            // MCQ → load options
-            if ("MCQ".equals(question.getQuestionType())) {
-                q.put("options",
-                    questionOptionRepository
-                        .findByQuestionId(question.getQuestionId())
-                        .stream()
-                        .map(opt -> Map.of(
-                        	    "optionId", opt.getOptionId(),
-                        	    "optionText", opt.getOptionText()
-                        	))
+            // ================= MCQ =================
+            if ("MCQ".equalsIgnoreCase(question.getQuestionType())
+                    || "QUIZ".equalsIgnoreCase(question.getQuestionType())) {
 
-                        .toList()
+                q.put("options",
+                        questionOptionRepository
+                                .findByQuestionId(question.getQuestionId())
+                                .stream()
+                                .map(opt -> {
+                                    Map<String, Object> option = new HashMap<>();
+                                    option.put("optionId", opt.getOptionId());
+                                    option.put("optionText", opt.getOptionText());
+                                    return option;
+                                })
+                                .toList()
                 );
             }
 

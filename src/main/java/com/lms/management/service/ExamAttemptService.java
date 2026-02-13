@@ -17,4 +17,8 @@ public interface ExamAttemptService {
 
     // ================= GET RESULT =================
     Object getResult(Long attemptId, Long studentId);
+    
+    ExamAttempt getAttemptByIdForSystem(Long attemptId);
+
+    ExamAttempt updateAttemptStatus(ExamAttempt attempt);
 }
