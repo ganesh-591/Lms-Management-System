@@ -6,16 +6,16 @@ import com.lms.management.model.SessionContent;
 
 public interface SessionContentService {
 
-    // Create session content metadata (file uploaded later)
+    // Create session content metadata (admin)
     SessionContent createSessionContent(Long sessionId, SessionContent sessionContent);
 
-    // Get content by ID
-    SessionContent getSessionContentById(Long sessionContentId);
+    // 🔒 Get content by ID (batch-based access)
+    SessionContent getSessionContentById(Long sessionContentId, Long batchId);
 
-    // Get all contents for a session
-    List<SessionContent> getContentsBySessionId(Long sessionId);
+    // 🔒 Get all contents for a session (batch-based access)
+    List<SessionContent> getContentsBySessionId(Long sessionId, Long batchId);
 
-    // Update content metadata (PUT = PATCH)
+    // Update content metadata
     SessionContent updateSessionContent(Long sessionContentId, SessionContent sessionContent);
 
     // Delete content

@@ -17,8 +17,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.lms.management.exception.UnauthorizedAccessException;
+import com.lms.management.model.Batch;
 import com.lms.management.model.TopicContent;
-import com.lms.management.repository.TopicContentRepository;
+import com.lms.management.service.BatchService;
 import com.lms.management.service.TopicContentService;
 import com.lms.management.util.FileUploadUtil;
 
@@ -30,7 +31,7 @@ import lombok.RequiredArgsConstructor;
 public class TopicContentController {
 
     private final TopicContentService topicContentService;
-    private final TopicContentRepository topicContentRepository;
+    private final BatchService batchService;
 
     // ===============================
     // 1️⃣ CREATE SINGLE CONTENT
@@ -75,10 +76,11 @@ public class TopicContentController {
     }
 
     // ===============================
-    // 4️⃣ UPLOAD FILES
+    // 4️⃣ UPLOAD FILES (Batch-Based Access)
     // ===============================
     @PutMapping("/upload-files")
     public ResponseEntity<String> uploadContentFiles(
+            @RequestParam("batchId") Long batchId,
             @RequestParam("contentIds") List<Long> contentIds,
             @RequestParam("files") List<MultipartFile> files
     ) throws IOException {
@@ -88,21 +90,15 @@ public class TopicContentController {
                     .body("Files count must match contentIds count");
         }
 
+        Batch batch = batchService.getBatchById(batchId);
+
+        if (Boolean.FALSE.equals(batch.getContentAccess())) {
+            throw new UnauthorizedAccessException(
+                    "Content upload disabled for this batch"
+            );
+        }
+
         for (int i = 0; i < contentIds.size(); i++) {
-        	List<Object[]> result =
-        	        topicContentRepository.findAccessFlags(contentIds.get(i));
-
-        	if (result.isEmpty()) {
-        	    throw new UnauthorizedAccessException("Access flags not found");
-        	}
-
-        	Object[] flags = result.get(0);
-        	Boolean enableContent = (Boolean) flags[0];
-            if (Boolean.FALSE.equals(enableContent)) {
-                throw new UnauthorizedAccessException(
-                        "Content upload disabled for this course"
-                );
-            }
 
             String fileUrl =
                     FileUploadUtil.saveTopicContentFile(files.get(i));
@@ -117,7 +113,7 @@ public class TopicContentController {
     }
 
     // ===============================
-    // 5️⃣ GET ALL CONTENTS
+    // 5️⃣ GET ALL CONTENTS (ADMIN)
     // ===============================
     @GetMapping
     public ResponseEntity<List<TopicContent>> getAllContents() {
@@ -127,26 +123,28 @@ public class TopicContentController {
     }
 
     // ===============================
-    // 6️⃣ GET CONTENT BY ID
+    // 6️⃣ GET CONTENT BY ID (Batch-based)
     // ===============================
     @GetMapping("/{contentId}")
     public ResponseEntity<TopicContent> getContentById(
-            @PathVariable Long contentId) {
+            @PathVariable Long contentId,
+            @RequestParam("batchId") Long batchId) {
 
         return ResponseEntity.ok(
-                topicContentService.getContentById(contentId)
+                topicContentService.getContentById(contentId, batchId)
         );
     }
 
     // ===============================
-    // 7️⃣ GET CONTENTS BY TOPIC
+    // 7️⃣ GET CONTENTS BY TOPIC (Batch-based)
     // ===============================
     @GetMapping("/topic/{topicId}")
     public ResponseEntity<List<TopicContent>> getContentsByTopic(
-            @PathVariable Long topicId) {
+            @PathVariable Long topicId,
+            @RequestParam("batchId") Long batchId) {
 
         return ResponseEntity.ok(
-                topicContentService.getContentsByTopicId(topicId)
+                topicContentService.getContentsByTopicId(topicId, batchId)
         );
     }
 

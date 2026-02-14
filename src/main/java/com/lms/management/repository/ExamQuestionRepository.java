@@ -11,7 +11,8 @@ import com.lms.management.model.ExamQuestion;
 public interface ExamQuestionRepository
         extends JpaRepository<ExamQuestion, Long> {
 
-    List<ExamQuestion> findByExamIdOrderByQuestionOrderAsc(Long examId);
+    List<ExamQuestion> findByExamSectionIdOrderByQuestionOrderAsc(Long examSectionId);
 
-    boolean existsByExamIdAndQuestionId(Long examId, Long questionId);
+    // 🔥 Prevent duplicate question inside same section
+    boolean existsByExamSectionIdAndQuestionId(Long examSectionId, Long questionId);
 }

@@ -11,11 +11,13 @@ import org.springframework.transaction.annotation.Transactional;
 import com.lms.management.model.ExamAttempt;
 import com.lms.management.model.ExamQuestion;
 import com.lms.management.model.ExamResponse;
+import com.lms.management.model.ExamSection;
 import com.lms.management.model.Question;
 import com.lms.management.model.QuestionOption;
 import com.lms.management.repository.ExamAttemptRepository;
 import com.lms.management.repository.ExamQuestionRepository;
 import com.lms.management.repository.ExamResponseRepository;
+import com.lms.management.repository.ExamSectionRepository;
 import com.lms.management.repository.QuestionOptionRepository;
 import com.lms.management.repository.QuestionRepository;
 import com.lms.management.service.ExamResponseService;
@@ -27,6 +29,7 @@ public class ExamResponseServiceImpl implements ExamResponseService {
     private final ExamResponseRepository examResponseRepository;
     private final ExamAttemptRepository examAttemptRepository;
     private final ExamQuestionRepository examQuestionRepository;
+    private final ExamSectionRepository examSectionRepository;
     private final QuestionOptionRepository questionOptionRepository;
     private final QuestionRepository questionRepository;
 
@@ -34,12 +37,14 @@ public class ExamResponseServiceImpl implements ExamResponseService {
             ExamResponseRepository examResponseRepository,
             ExamAttemptRepository examAttemptRepository,
             ExamQuestionRepository examQuestionRepository,
+            ExamSectionRepository examSectionRepository,
             QuestionOptionRepository questionOptionRepository,
             QuestionRepository questionRepository) {
 
         this.examResponseRepository = examResponseRepository;
         this.examAttemptRepository = examAttemptRepository;
         this.examQuestionRepository = examQuestionRepository;
+        this.examSectionRepository = examSectionRepository;
         this.questionOptionRepository = questionOptionRepository;
         this.questionRepository = questionRepository;
     }
@@ -53,6 +58,7 @@ public class ExamResponseServiceImpl implements ExamResponseService {
             String descriptiveAnswer,
             String codingSubmissionCode) {
 
+        // 1️⃣ Fetch attempt
         ExamAttempt attempt = examAttemptRepository.findById(attemptId)
                 .orElseThrow(() -> new IllegalStateException("Attempt not found"));
 
@@ -60,18 +66,28 @@ public class ExamResponseServiceImpl implements ExamResponseService {
             throw new IllegalStateException("Cannot modify responses");
         }
 
-        ExamQuestion examQuestion = examQuestionRepository.findById(examQuestionId)
+        // 2️⃣ Fetch exam question
+        ExamQuestion examQuestion = examQuestionRepository
+                .findById(examQuestionId)
                 .orElseThrow(() -> new IllegalStateException("Exam question not found"));
 
-        if (!examQuestion.getExamId().equals(attempt.getExamId())) {
+        // 3️⃣ Fetch exam section
+        ExamSection examSection = examSectionRepository
+                .findById(examQuestion.getExamSectionId())
+                .orElseThrow(() -> new IllegalStateException("Exam section not found"));
+
+        // 4️⃣ Validate ownership
+        if (!examSection.getExamId().equals(attempt.getExamId())) {
             throw new IllegalStateException("Question does not belong to this exam");
         }
 
+        // 5️⃣ Fetch response
         ExamResponse response = examResponseRepository
                 .findByAttemptIdAndExamQuestionId(attemptId, examQuestionId)
                 .orElseThrow(() ->
                         new IllegalStateException("Question not assigned to this attempt"));
 
+        // 6️⃣ Fetch actual question
         Question question = questionRepository
                 .findById(examQuestion.getQuestionId())
                 .orElseThrow();
@@ -111,11 +127,6 @@ public class ExamResponseServiceImpl implements ExamResponseService {
         ExamAttempt attempt = examAttemptRepository.findById(attemptId)
                 .orElseThrow(() -> new IllegalStateException("Attempt not found"));
 
-        if (!"SUBMITTED".equals(attempt.getStatus())
-                && !"AUTO_SUBMITTED".equals(attempt.getStatus())) {
-            throw new IllegalStateException("Attempt not ready for evaluation");
-        }
-
         List<ExamResponse> responses =
                 examResponseRepository.findByAttemptId(attemptId);
 
@@ -150,14 +161,6 @@ public class ExamResponseServiceImpl implements ExamResponseService {
             Long responseId,
             Double marks) {
 
-        ExamAttempt attempt = examAttemptRepository.findById(attemptId)
-                .orElseThrow(() -> new IllegalStateException("Attempt not found"));
-
-        if (!"SUBMITTED".equals(attempt.getStatus())
-                && !"AUTO_SUBMITTED".equals(attempt.getStatus())) {
-            throw new IllegalStateException("Attempt not ready for manual evaluation");
-        }
-
         ExamResponse response = examResponseRepository.findById(responseId)
                 .orElseThrow(() -> new IllegalStateException("Response not found"));
 
@@ -177,12 +180,9 @@ public class ExamResponseServiceImpl implements ExamResponseService {
         return examResponseRepository.findByAttemptId(attemptId);
     }
 
-    // ================= DESCRIPTIVE EVALUATION VIEW =================
+    // ================= DESCRIPTIVE VIEW =================
     @Override
     public List<Map<String, Object>> getDescriptiveResponsesForEvaluation(Long attemptId) {
-
-        examAttemptRepository.findById(attemptId)
-                .orElseThrow(() -> new IllegalStateException("Attempt not found"));
 
         List<ExamResponse> responses =
                 examResponseRepository.findByAttemptId(attemptId);
@@ -218,12 +218,9 @@ public class ExamResponseServiceImpl implements ExamResponseService {
         return result;
     }
 
-    // ================= CODING EVALUATION VIEW =================
+    // ================= CODING VIEW =================
     @Override
     public List<Map<String, Object>> getCodingResponsesForEvaluation(Long attemptId) {
-
-        examAttemptRepository.findById(attemptId)
-                .orElseThrow(() -> new IllegalStateException("Attempt not found"));
 
         List<ExamResponse> responses =
                 examResponseRepository.findByAttemptId(attemptId);

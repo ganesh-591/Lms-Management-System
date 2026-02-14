@@ -43,7 +43,8 @@ public class Course {
 
     private Boolean allowOfflineMobile;
     private Boolean allowBookmark;
-    private Boolean enableContentAccess;
+
+    // ❌ REMOVED: enableContentAccess
 
     private String courseImageUrl;
 
@@ -60,6 +61,9 @@ public class Course {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    @Transient
+    private List<Topic> topics;
+
     // ===============================
     // LIFECYCLE
     // ===============================
@@ -68,8 +72,6 @@ public class Course {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
-    @Transient
-    private List<Topic> topics;
 
     @PreUpdate
     protected void onUpdate() {
@@ -77,7 +79,7 @@ public class Course {
     }
 
     // ===============================
-    // EXPLICIT METHODS (IMPORTANT)
+    // EXPLICIT METHODS
     // ===============================
     public String getShareLink() {
         return shareLink;

@@ -7,10 +7,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.lms.management.exception.ResourceNotFoundException;
+import com.lms.management.exception.UnauthorizedAccessException;
+import com.lms.management.model.Batch;
 import com.lms.management.model.Topic;
 import com.lms.management.model.TopicContent;
 import com.lms.management.repository.TopicContentRepository;
 import com.lms.management.repository.TopicRepository;
+import com.lms.management.service.BatchService;
 import com.lms.management.service.TopicContentService;
 
 import lombok.RequiredArgsConstructor;
@@ -22,9 +25,10 @@ public class TopicContentServiceImpl implements TopicContentService {
 
     private final TopicContentRepository topicContentRepository;
     private final TopicRepository topicRepository;
+    private final BatchService batchService;
 
     // ===============================
-    // 1️⃣ CREATE SINGLE CONTENT (JSON)
+    // CREATE SINGLE CONTENT
     // ===============================
     @Override
     public TopicContent createContent(Long topicId, TopicContent content) {
@@ -38,8 +42,6 @@ public class TopicContentServiceImpl implements TopicContentService {
 
         content.setTopic(topic);
 
-        // 🔴 REQUIRED FIX (DO NOT REMOVE)
-        // Decide content source automatically
         if (content.getFileUrl() != null && content.getFileUrl().startsWith("http")) {
             content.setContentSource("URL");
         } else {
@@ -50,7 +52,7 @@ public class TopicContentServiceImpl implements TopicContentService {
     }
 
     // ===============================
-    // 2️⃣ CREATE CONTENT BULK (JSON)
+    // CREATE BULK
     // ===============================
     @Override
     public List<TopicContent> createContentBulk(
@@ -71,7 +73,6 @@ public class TopicContentServiceImpl implements TopicContentService {
 
             content.setTopic(topic);
 
-            // 🔴 SAME FIX FOR BULK
             if (content.getFileUrl() != null && content.getFileUrl().startsWith("http")) {
                 content.setContentSource("URL");
             } else {
@@ -85,11 +86,19 @@ public class TopicContentServiceImpl implements TopicContentService {
     }
 
     // ===============================
-    // 3️⃣ GET CONTENT BY ID
+    // GET CONTENT BY ID (Batch-based access)
     // ===============================
     @Override
     @Transactional(readOnly = true)
-    public TopicContent getContentById(Long contentId) {
+    public TopicContent getContentById(Long contentId, Long batchId) {
+
+        Batch batch = batchService.getBatchById(batchId);
+
+        if (Boolean.FALSE.equals(batch.getContentAccess())) {
+            throw new UnauthorizedAccessException(
+                    "Content access disabled for this batch"
+            );
+        }
 
         return topicContentRepository.findById(contentId)
                 .orElseThrow(() ->
@@ -100,27 +109,34 @@ public class TopicContentServiceImpl implements TopicContentService {
     }
 
     // ===============================
-    // 4️⃣ GET CONTENTS BY TOPIC
+    // GET CONTENTS BY TOPIC (Batch-based access)
     // ===============================
     @Override
     @Transactional(readOnly = true)
-    public List<TopicContent> getContentsByTopicId(Long topicId) {
+    public List<TopicContent> getContentsByTopicId(Long topicId, Long batchId) {
+
+        Batch batch = batchService.getBatchById(batchId);
+
+        if (Boolean.FALSE.equals(batch.getContentAccess())) {
+            throw new UnauthorizedAccessException(
+                    "Content access disabled for this batch"
+            );
+        }
 
         return topicContentRepository.findByTopicTopicId(topicId);
     }
 
     // ===============================
-    // 5️⃣ GET ALL CONTENTS
+    // GET ALL CONTENTS (Admin)
     // ===============================
     @Override
     @Transactional(readOnly = true)
     public List<TopicContent> getAllContents() {
-
         return topicContentRepository.findAll();
     }
 
     // ===============================
-    // 6️⃣ UPDATE CONTENT (PUT = PATCH)
+    // UPDATE
     // ===============================
     @Override
     public TopicContent updateContent(Long contentId, TopicContent incoming) {
@@ -151,7 +167,7 @@ public class TopicContentServiceImpl implements TopicContentService {
     }
 
     // ===============================
-    // 7️⃣ DELETE CONTENT
+    // DELETE
     // ===============================
     @Override
     public void deleteContent(Long contentId) {

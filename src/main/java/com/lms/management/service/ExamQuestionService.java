@@ -8,12 +8,12 @@ import com.lms.management.model.ExamQuestion;
 public interface ExamQuestionService {
 
     List<ExamQuestion> addQuestions(
-            Long examId, List<ExamQuestion> questions);
+            Long examSectionId, List<ExamQuestion> questions);
 
-    List<ExamQuestion> getQuestionsByExam(Long examId);
+    List<ExamQuestion> getQuestionsBySection(Long examSectionId);
 
     ExamQuestion updateExamQuestion(
-            Long examId,
+            Long examSectionId,
             Long examQuestionId,
             ExamQuestion request);
 

@@ -1,6 +1,7 @@
 package com.lms.management.service.impl;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,11 +14,13 @@ import com.lms.management.model.Exam;
 import com.lms.management.model.ExamAttempt;
 import com.lms.management.model.ExamQuestion;
 import com.lms.management.model.ExamResponse;
+import com.lms.management.model.ExamSection;
 import com.lms.management.repository.ExamAttemptRepository;
 import com.lms.management.repository.ExamGradingRepository;
 import com.lms.management.repository.ExamQuestionRepository;
 import com.lms.management.repository.ExamRepository;
 import com.lms.management.repository.ExamResponseRepository;
+import com.lms.management.repository.ExamSectionRepository;
 import com.lms.management.repository.ExamSettingsRepository;
 import com.lms.management.service.CodingExecutionService;
 import com.lms.management.service.ExamAttemptService;
@@ -35,6 +38,7 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
     private final ExamResponseRepository examResponseRepository;
     private final ExamGradingRepository examGradingRepository;
     private final CodingExecutionService codingExecutionService;
+    private final ExamSectionRepository examSectionRepository;
 
     public ExamAttemptServiceImpl(
             ExamAttemptRepository examAttemptRepository,
@@ -44,7 +48,8 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
             ExamResponseService examResponseService,
             ExamResponseRepository examResponseRepository,
             ExamGradingRepository examGradingRepository,
-            CodingExecutionService codingExecutionService) {
+            CodingExecutionService codingExecutionService,
+            ExamSectionRepository examSectionRepository) {
 
         this.examAttemptRepository = examAttemptRepository;
         this.examRepository = examRepository;
@@ -54,6 +59,7 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
         this.examResponseRepository = examResponseRepository;
         this.examGradingRepository = examGradingRepository;
         this.codingExecutionService = codingExecutionService;
+        this.examSectionRepository = examSectionRepository;
     }
 
     private void checkAndAutoSubmitIfExpired(ExamAttempt attempt) {
@@ -81,8 +87,25 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
             throw new IllegalStateException("Exam not available");
         }
 
-        List<ExamQuestion> questions =
-                examQuestionRepository.findByExamIdOrderByQuestionOrderAsc(examId);
+        // ✅ LOAD SECTIONS FIRST
+        List<ExamSection> sections =
+                examSectionRepository.findByExamIdOrderBySectionOrderAsc(examId);
+
+        if (sections.isEmpty()) {
+            throw new IllegalStateException("No sections in exam");
+        }
+
+        // ✅ THEN LOAD QUESTIONS FROM EACH SECTION
+        List<ExamQuestion> questions = new ArrayList<>();
+
+        for (ExamSection section : sections) {
+            questions.addAll(
+                    examQuestionRepository
+                            .findByExamSectionIdOrderByQuestionOrderAsc(
+                                    section.getExamSectionId()
+                            )
+            );
+        }
 
         if (questions.isEmpty()) {
             throw new IllegalStateException("No questions in exam");
@@ -109,9 +132,9 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
         return attempt;
     }
 
+    // 🔥 Everything below remains unchanged
     @Override
     public ExamAttempt submitAttempt(Long attemptId, Long studentId) {
-
         ExamAttempt attempt = examAttemptRepository.findById(attemptId)
                 .orElseThrow(() -> new IllegalStateException("Attempt not found"));
 
@@ -125,7 +148,6 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
             throw new IllegalStateException("Cannot submit");
         }
 
-        // 🔥 Immediately mark as EVALUATING
         attempt.setStatus("EVALUATING");
         attempt.setEndTime(LocalDateTime.now());
 
@@ -168,7 +190,6 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
         for (ExamResponse r : responses) {
             if (r.getCodingSubmissionCode() != null
                     && !r.getCodingSubmissionCode().isBlank()) {
-
                 codingExecutionService.runSubmission(r.getResponseId());
             }
         }
@@ -231,10 +252,9 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
 
         return attempt;
     }
-    
+
     @Override
     public ExamAttempt getAttemptByIdForSystem(Long attemptId) {
-
         return examAttemptRepository.findById(attemptId)
                 .orElseThrow(() -> new IllegalStateException("Attempt not found"));
     }

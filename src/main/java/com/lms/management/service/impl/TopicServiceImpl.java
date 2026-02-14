@@ -6,7 +6,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.lms.management.exception.ResourceNotFoundException;
-import com.lms.management.exception.UnauthorizedAccessException;
 import com.lms.management.model.Course;
 import com.lms.management.model.Topic;
 import com.lms.management.repository.CourseRepository;
@@ -34,32 +33,25 @@ public class TopicServiceImpl implements TopicService {
         return topicRepository.save(topic);
     }
 
-    // ✅ FIX HERE
     @Override
     @Transactional(readOnly = true)
     public Topic getTopicById(Long topicId) {
 
-        Topic topic = topicRepository.findById(topicId)
+        return topicRepository.findById(topicId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Topic not found with id: " + topicId)
                 );
-
-        // SAFE: session is open
-        enforceContentAccess(topic.getCourse());
-        return topic;
     }
 
-    // ✅ FIX HERE
     @Override
     @Transactional(readOnly = true)
     public List<Topic> getTopicsByCourseId(Long courseId) {
 
-        Course course = courseRepository.findById(courseId)
+        courseRepository.findById(courseId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Course not found with id: " + courseId)
                 );
 
-        enforceContentAccess(course);
         return topicRepository.findByCourseCourseId(courseId);
     }
 
@@ -97,13 +89,5 @@ public class TopicServiceImpl implements TopicService {
                 );
 
         topicRepository.delete(existing);
-    }
-
-    private void enforceContentAccess(Course course) {
-        if (Boolean.FALSE.equals(course.getEnableContentAccess())) {
-            throw new UnauthorizedAccessException(
-                    "Content access is disabled for this course"
-            );
-        }
     }
 }

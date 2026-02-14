@@ -21,7 +21,6 @@ public class CourseServiceImpl implements CourseService {
     private final TopicRepository topicRepository;
     private final TopicContentRepository topicContentRepository;
 
-    // ✅ UPDATED CONSTRUCTOR (NO ERRORS)
     public CourseServiceImpl(
             CourseRepository courseRepository,
             TopicRepository topicRepository,
@@ -94,8 +93,7 @@ public class CourseServiceImpl implements CourseService {
         if (incoming.getAllowBookmark() != null)
             existing.setAllowBookmark(incoming.getAllowBookmark());
 
-        if (incoming.getEnableContentAccess() != null)
-            existing.setEnableContentAccess(incoming.getEnableContentAccess());
+        // ❌ REMOVED enableContentAccess update block
 
         if (incoming.getShareEnabled() != null)
             existing.setShareEnabled(incoming.getShareEnabled());
@@ -157,7 +155,7 @@ public class CourseServiceImpl implements CourseService {
     }
 
     // ===============================
-    // DELETE COURSE (HARD DELETE 🔥 FIXED)
+    // DELETE COURSE (HARD DELETE)
     // ===============================
     @Override
     public void hardDeleteCourse(Long courseId) {
@@ -169,13 +167,8 @@ public class CourseServiceImpl implements CourseService {
                         )
                 );
 
-        // 1️⃣ delete all topic contents
         topicContentRepository.deleteByCourseId(courseId);
-
-        // 2️⃣ delete all topics
         topicRepository.deleteByCourseId(courseId);
-
-        // 3️⃣ delete course
         courseRepository.delete(course);
     }
 

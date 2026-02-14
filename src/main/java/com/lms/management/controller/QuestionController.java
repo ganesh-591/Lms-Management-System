@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.lms.management.model.ContentType;
+import com.lms.management.model.ProgrammingLanguage;
 import com.lms.management.model.Question;
 import com.lms.management.model.QuestionDescriptiveAnswer;
 import com.lms.management.repository.QuestionDescriptiveAnswerRepository;
@@ -38,27 +39,43 @@ public class QuestionController {
     }
 
     // ================= CREATE QUESTION (JSON - TEXT / CODING / DESCRIPTIVE) =================
-    @PostMapping(
-            consumes = "application/json",
-            produces = "application/json"
-    )
+    @PostMapping(consumes = "application/json", produces = "application/json")
     public ResponseEntity<Question> createQuestionJson(
-            @RequestBody Map<String, Object> request
-    ) {
+            @RequestBody Map<String, Object> request) {
 
         String questionText = (String) request.get("questionText");
         String questionType = (String) request.get("questionType");
         String contentTypeStr = (String) request.get("contentType");
+        String programmingLanguageStr =
+                (String) request.get("programmingLanguage");
+
+        if (questionText == null || questionType == null || contentTypeStr == null) {
+            throw new IllegalStateException("Missing required fields");
+        }
 
         Question question = new Question();
         question.setQuestionText(questionText);
         question.setQuestionType(questionType);
         question.setContentType(ContentType.valueOf(contentTypeStr));
 
+        // ================= CODING VALIDATION =================
+        if ("CODING".equalsIgnoreCase(questionType)) {
+
+            if (programmingLanguageStr == null) {
+                throw new IllegalStateException(
+                        "Programming language required for CODING question");
+            }
+
+            question.setProgrammingLanguage(
+                    ProgrammingLanguage.valueOf(programmingLanguageStr));
+        } else {
+            question.setProgrammingLanguage(null);
+        }
+
         Question savedQuestion = questionRepository.save(question);
 
         // ================= DESCRIPTIVE EXTRA SAVE =================
-        if ("DESCRIPTIVE".equals(questionType)) {
+        if ("DESCRIPTIVE".equalsIgnoreCase(questionType)) {
 
             String modelAnswer = (String) request.get("modelAnswer");
             String keywords = (String) request.get("keywords");
@@ -140,4 +157,24 @@ public class QuestionController {
         questionRepository.deleteById(questionId);
         return ResponseEntity.noContent().build();
     }
+    
+ // ================= GET DESCRIPTIVE DETAILS (ADMIN ONLY) =================
+    @GetMapping("/{questionId}/descriptive-details")
+    public ResponseEntity<?> getDescriptiveDetails(
+            @PathVariable Long questionId) {
+
+        QuestionDescriptiveAnswer descriptive =
+                descriptiveRepository.findByQuestionId(questionId)
+                        .orElseThrow(() ->
+                                new IllegalStateException("Descriptive details not found"));
+
+        return ResponseEntity.ok(
+                Map.of(
+                        "modelAnswer", descriptive.getAnswerText(),
+                        "keywords", descriptive.getGuidelines()
+                )
+        );
+    }
+    
+    
 }

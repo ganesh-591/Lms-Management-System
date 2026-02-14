@@ -3,8 +3,16 @@ package com.lms.management.controller;
 import java.io.IOException;
 import java.util.List;
 
-import org.springframework.web.bind.annotation.*;
-
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.lms.management.exception.ResourceNotFoundException;
@@ -41,7 +49,7 @@ public class CourseController {
     }
 
     // ===============================
-    // CREATE COURSE (JSON ONLY)
+    // CREATE COURSE
     // ===============================
     @PostMapping
     public Course createCourse(@RequestBody Course course) {
@@ -49,7 +57,7 @@ public class CourseController {
     }
 
     // ===============================
-    // UPDATE COURSE (PUT AS PATCH)
+    // UPDATE COURSE
     // ===============================
     @PutMapping("/{id}")
     public Course updateCourse(
@@ -60,7 +68,7 @@ public class CourseController {
     }
 
     // ===============================
-    // UPLOAD / UPDATE COURSE IMAGE
+    // UPDATE COURSE IMAGE
     // ===============================
     @PutMapping("/{id}/image")
     public Course updateCourseImage(
@@ -93,7 +101,7 @@ public class CourseController {
     }
 
     // ===============================
-    // DELETE COURSE (SOFT DELETE)
+    // DELETE COURSE (SOFT)
     // ===============================
     @DeleteMapping("/{id}")
     public void deleteCourse(@PathVariable Long id) {
@@ -101,7 +109,7 @@ public class CourseController {
     }
 
     // ===============================
-    // DELETE COURSE (HARD DELETE)
+    // DELETE COURSE (HARD)
     // ===============================
     @DeleteMapping("/{id}/hard")
     public void hardDeleteCourse(@PathVariable Long id) {
@@ -110,7 +118,6 @@ public class CourseController {
 
     // ===============================
     // 🔗 SHARE COURSE (PUBLIC API)
-    // RETURNS COURSE + TOPICS + CONTENTS
     // ===============================
     @GetMapping("/share/{shareCode}")
     public Course shareCourse(@PathVariable String shareCode) {
@@ -128,22 +135,19 @@ public class CourseController {
             throw new UnauthorizedAccessException("Sharing disabled");
         }
 
-        if (Boolean.FALSE.equals(course.getEnableContentAccess())) {
-            throw new UnauthorizedAccessException("Content access disabled");
-        }
+        // ❌ REMOVED content access check
 
         // 🔥 LOAD TOPICS
         List<Topic> topics =
                 topicRepository.findByCourseCourseId(course.getCourseId());
 
-        // 🔥 LOAD CONTENTS FOR EACH TOPIC
+        // 🔥 LOAD CONTENTS
         for (Topic topic : topics) {
             List<TopicContent> contents =
                     topicContentRepository.findByTopicTopicId(topic.getTopicId());
             topic.setContents(contents);
         }
 
-        // 🔥 ATTACH TO COURSE (TRANSIENT FIELD)
         course.setTopics(topics);
 
         return course;

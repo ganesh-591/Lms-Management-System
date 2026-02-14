@@ -17,7 +17,6 @@ public interface TopicContentRepository
 
     @Query("""
         select 
-            tc.topic.course.enableContentAccess,
             tc.topic.course.allowOfflineMobile
         from TopicContent tc
         where tc.contentId = :contentId

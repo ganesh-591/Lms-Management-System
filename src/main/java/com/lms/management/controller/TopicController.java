@@ -14,8 +14,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.lms.management.exception.ResourceNotFoundException;
-import com.lms.management.exception.UnauthorizedAccessException;
-import com.lms.management.model.Course;
 import com.lms.management.model.Topic;
 import com.lms.management.repository.CourseRepository;
 import com.lms.management.service.TopicService;
@@ -31,7 +29,7 @@ public class TopicController {
     private final CourseRepository courseRepository;
 
     // ===============================
-    // CREATE TOPIC (NO ACCESS CHECK)
+    // CREATE TOPIC
     // ===============================
     @PostMapping("/course/{courseId}")
     public ResponseEntity<Topic> createTopic(
@@ -43,7 +41,7 @@ public class TopicController {
     }
 
     // ===============================
-    // GET ALL TOPICS (ADMIN USE)
+    // GET ALL TOPICS
     // ===============================
     @GetMapping
     public ResponseEntity<List<Topic>> getAllTopics() {
@@ -53,7 +51,7 @@ public class TopicController {
     }
 
     // ===============================
-    // GET TOPIC BY ID (NO COURSE CHECK)
+    // GET TOPIC BY ID
     // ===============================
     @GetMapping("/{topicId}")
     public ResponseEntity<Topic> getTopicById(@PathVariable Long topicId) {
@@ -63,28 +61,23 @@ public class TopicController {
     }
 
     // ===============================
-    // GET TOPICS BY COURSE (ACCESS ENFORCED)
+    // GET TOPICS BY COURSE
     // ===============================
     @GetMapping("/course/{courseId}")
     public ResponseEntity<List<Topic>> getTopicsByCourseId(
             @PathVariable Long courseId) {
 
-        Course course = courseRepository.findById(courseId)
+        courseRepository.findById(courseId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Course not found with id: " + courseId)
                 );
-
-        // 🔒 ENFORCE CONTENT ACCESS
-        if (Boolean.FALSE.equals(course.getEnableContentAccess())) {
-            throw new UnauthorizedAccessException("Course content access is disabled");
-        }
 
         List<Topic> topics = topicService.getTopicsByCourseId(courseId);
         return ResponseEntity.ok(topics);
     }
 
     // ===============================
-    // UPDATE TOPIC (NO ACCESS CHECK)
+    // UPDATE TOPIC
     // ===============================
     @PutMapping("/{topicId}")
     public ResponseEntity<Topic> updateTopic(
@@ -96,7 +89,7 @@ public class TopicController {
     }
 
     // ===============================
-    // DELETE TOPIC (NO ACCESS CHECK)
+    // DELETE TOPIC
     // ===============================
     @DeleteMapping("/{topicId}")
     public ResponseEntity<Void> deleteTopic(@PathVariable Long topicId) {

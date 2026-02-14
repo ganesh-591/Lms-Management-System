@@ -8,11 +8,9 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.lms.management.model.Exam;
 import com.lms.management.model.ExamQuestion;
 import com.lms.management.model.Question;
 import com.lms.management.repository.ExamQuestionRepository;
-import com.lms.management.repository.ExamRepository;
 import com.lms.management.repository.QuestionOptionRepository;
 import com.lms.management.repository.QuestionRepository;
 import com.lms.management.service.ExamQuestionService;
@@ -22,68 +20,64 @@ import com.lms.management.service.ExamQuestionService;
 public class ExamQuestionServiceImpl implements ExamQuestionService {
 
     private final ExamQuestionRepository examQuestionRepository;
-    private final ExamRepository examRepository;
     private final QuestionRepository questionRepository;
     private final QuestionOptionRepository questionOptionRepository;
 
     public ExamQuestionServiceImpl(
             ExamQuestionRepository examQuestionRepository,
-            ExamRepository examRepository,
             QuestionRepository questionRepository,
             QuestionOptionRepository questionOptionRepository
     ) {
         this.examQuestionRepository = examQuestionRepository;
-        this.examRepository = examRepository;
         this.questionRepository = questionRepository;
         this.questionOptionRepository = questionOptionRepository;
     }
 
+    // ================= ADD QUESTIONS TO EXAM SECTION =================
     @Override
     public List<ExamQuestion> addQuestions(
-            Long examId, List<ExamQuestion> questions) {
-
-        Exam exam = examRepository.findById(examId)
-                .orElseThrow(() ->
-                        new IllegalStateException("Exam not found"));
-
-        if (!"DRAFT".equals(exam.getStatus())) {
-            throw new IllegalStateException(
-                    "Questions can be added only in DRAFT");
-        }
+            Long examSectionId,
+            List<ExamQuestion> questions) {
 
         for (ExamQuestion q : questions) {
 
             if (examQuestionRepository
-                    .existsByExamIdAndQuestionId(
-                            examId, q.getQuestionId())) {
+                    .existsByExamSectionIdAndQuestionId(
+                            examSectionId,
+                            q.getQuestionId())) {
+
                 throw new IllegalStateException(
-                        "Duplicate question in exam");
+                        "Duplicate question inside section");
             }
 
-            q.setExamId(examId);
+            q.setExamSectionId(examSectionId);
         }
 
         return examQuestionRepository.saveAll(questions);
     }
 
+    // ================= GET QUESTIONS BY SECTION =================
     @Override
-    public List<ExamQuestion> getQuestionsByExam(Long examId) {
+    public List<ExamQuestion> getQuestionsBySection(Long examSectionId) {
+
         return examQuestionRepository
-                .findByExamIdOrderByQuestionOrderAsc(examId);
+                .findByExamSectionIdOrderByQuestionOrderAsc(examSectionId);
     }
 
+    // ================= UPDATE EXAM QUESTION =================
     @Override
     public ExamQuestion updateExamQuestion(
-            Long examId,
+            Long examSectionId,
             Long examQuestionId,
             ExamQuestion request) {
 
-        ExamQuestion existing = examQuestionRepository.findById(examQuestionId)
-                .orElseThrow(() ->
-                        new IllegalStateException("Exam question not found"));
+        ExamQuestion existing =
+                examQuestionRepository.findById(examQuestionId)
+                        .orElseThrow(() ->
+                                new IllegalStateException("Exam question not found"));
 
-        if (!existing.getExamId().equals(examId)) {
-            throw new IllegalStateException("Invalid exam mapping");
+        if (!existing.getExamSectionId().equals(examSectionId)) {
+            throw new IllegalStateException("Invalid section mapping");
         }
 
         existing.setMarks(request.getMarks());
@@ -92,25 +86,27 @@ public class ExamQuestionServiceImpl implements ExamQuestionService {
         return examQuestionRepository.save(existing);
     }
 
+    // ================= REMOVE QUESTION FROM SECTION =================
     @Override
     public void removeExamQuestion(Long examQuestionId) {
         examQuestionRepository.deleteById(examQuestionId);
     }
 
+    // ================= GET QUESTIONS FOR STUDENT (BY SECTION) =================
     @Override
-    public List<Map<String, Object>> getExamQuestionsForStudent(Long examId) {
+    public List<Map<String, Object>> getExamQuestionsForStudent(Long examSectionId) {
 
         List<ExamQuestion> examQuestions =
                 examQuestionRepository
-                        .findByExamIdOrderByQuestionOrderAsc(examId);
+                        .findByExamSectionIdOrderByQuestionOrderAsc(examSectionId);
 
         List<Map<String, Object>> result = new ArrayList<>();
 
         for (ExamQuestion eq : examQuestions) {
 
-            Question question = questionRepository
-                    .findById(eq.getQuestionId())
-                    .orElseThrow();
+            Question question =
+                    questionRepository.findById(eq.getQuestionId())
+                            .orElseThrow();
 
             Map<String, Object> q = new HashMap<>();
             q.put("examQuestionId", eq.getExamQuestionId());
@@ -120,9 +116,8 @@ public class ExamQuestionServiceImpl implements ExamQuestionService {
             q.put("marks", eq.getMarks());
             q.put("questionOrder", eq.getQuestionOrder());
 
-            // ================= MCQ =================
-            if ("MCQ".equalsIgnoreCase(question.getQuestionType())
-                    || "QUIZ".equalsIgnoreCase(question.getQuestionType())) {
+            // ================= MCQ OPTIONS =================
+            if ("MCQ".equalsIgnoreCase(question.getQuestionType())) {
 
                 q.put("options",
                         questionOptionRepository

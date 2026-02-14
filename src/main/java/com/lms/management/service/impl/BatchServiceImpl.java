@@ -25,10 +25,8 @@ public class BatchServiceImpl implements BatchService {
     @Override
     public Batch createBatch(Long courseId, Batch batch) {
 
-        // Force courseId from URL
         batch.setCourseId(courseId);
 
-        // Prevent duplicate batch name under same course
         if (batchRepository.existsByCourseIdAndBatchName(
                 courseId, batch.getBatchName())) {
 
@@ -37,9 +35,17 @@ public class BatchServiceImpl implements BatchService {
             );
         }
 
+        // 🔒 Business Rule
+        if (Boolean.TRUE.equals(batch.getFreeBatch())) {
+            batch.setFee(null);   // free → no fee
+        } else {
+            if (batch.getFee() == null || batch.getFee() <= 0) {
+                throw new IllegalStateException("Paid batch must have valid fee");
+            }
+        }
+
         Batch savedBatch = batchRepository.save(batch);
 
-        // 🔹 Recalculate course batch stats
         courseBatchStatsService.recalculateStats(courseId);
 
         return savedBatch;
@@ -61,7 +67,7 @@ public class BatchServiceImpl implements BatchService {
         return batchRepository.findByCourseId(courseId);
     }
 
-    // ================= UPDATE (PUT = PATCH) =================
+    // ================= UPDATE =================
     @Override
     public Batch updateBatch(Long batchId, Batch updatedBatch) {
 
@@ -74,7 +80,7 @@ public class BatchServiceImpl implements BatchService {
         if (updatedBatch.getTrainerName() != null) {
             existingBatch.setTrainerName(updatedBatch.getTrainerName());
         }
-        
+
         if (updatedBatch.getTrainerId() != null) {
             existingBatch.setTrainerId(updatedBatch.getTrainerId());
         }
@@ -91,13 +97,33 @@ public class BatchServiceImpl implements BatchService {
             existingBatch.setMaxStudents(updatedBatch.getMaxStudents());
         }
 
+        if (updatedBatch.getFreeBatch() != null) {
+            existingBatch.setFreeBatch(updatedBatch.getFreeBatch());
+        }
+
+        if (updatedBatch.getFee() != null) {
+            existingBatch.setFee(updatedBatch.getFee());
+        }
+
+        if (updatedBatch.getContentAccess() != null) {
+            existingBatch.setContentAccess(updatedBatch.getContentAccess());
+        }
+
         if (updatedBatch.getStatus() != null) {
             existingBatch.setStatus(updatedBatch.getStatus());
         }
 
+        // 🔒 Business Rule (same as create)
+        if (Boolean.TRUE.equals(existingBatch.getFreeBatch())) {
+            existingBatch.setFee(null);
+        } else {
+            if (existingBatch.getFee() == null || existingBatch.getFee() <= 0) {
+                throw new IllegalStateException("Paid batch must have valid fee");
+            }
+        }
+
         Batch savedBatch = batchRepository.save(existingBatch);
 
-        // 🔹 Recalculate stats after update (status/date may change)
         courseBatchStatsService.recalculateStats(existingBatch.getCourseId());
 
         return savedBatch;
@@ -112,7 +138,6 @@ public class BatchServiceImpl implements BatchService {
 
         batchRepository.delete(batch);
 
-        // 🔹 Recalculate stats after deletion
         courseBatchStatsService.recalculateStats(courseId);
     }
 }

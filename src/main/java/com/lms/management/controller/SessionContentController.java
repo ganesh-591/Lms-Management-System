@@ -14,7 +14,15 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.lms.management.exception.ResourceNotFoundException;
@@ -46,27 +54,29 @@ public class SessionContentController {
         return new ResponseEntity<>(created, HttpStatus.CREATED);
     }
 
-    // ================= GET BY ID =================
+    // ================= GET BY ID (Batch Based) =================
     @GetMapping("/{sessionContentId}")
     public ResponseEntity<SessionContent> getSessionContentById(
-            @PathVariable Long sessionContentId) {
+            @PathVariable Long sessionContentId,
+            @RequestParam("batchId") Long batchId) {
 
         requirePermission("SESSION_CONTENT_VIEW");
 
         return ResponseEntity.ok(
-                sessionContentService.getSessionContentById(sessionContentId)
+                sessionContentService.getSessionContentById(sessionContentId, batchId)
         );
     }
 
-    // ================= GET BY SESSION =================
+    // ================= GET BY SESSION (Batch Based) =================
     @GetMapping("/session/{sessionId}")
     public ResponseEntity<List<SessionContent>> getContentsBySession(
-            @PathVariable Long sessionId) {
+            @PathVariable Long sessionId,
+            @RequestParam("batchId") Long batchId) {
 
         requirePermission("SESSION_CONTENT_VIEW");
 
         return ResponseEntity.ok(
-                sessionContentService.getContentsBySessionId(sessionId)
+                sessionContentService.getContentsBySessionId(sessionId, batchId)
         );
     }
 
@@ -82,7 +92,7 @@ public class SessionContentController {
         requirePermission("SESSION_CONTENT_UPDATE");
 
         SessionContent content =
-                sessionContentService.getSessionContentById(sessionContentId);
+                sessionContentService.getSessionContentById(sessionContentId, null);
 
         String fileUrl = FileUploadUtil.saveSessionContentFile(file);
         content.setFileUrl(fileUrl);
@@ -92,7 +102,7 @@ public class SessionContentController {
         );
     }
 
-    // ================= UPDATE METADATA (PUT = PATCH) =================
+    // ================= UPDATE METADATA =================
     @PutMapping("/{sessionContentId}")
     public ResponseEntity<SessionContent> updateSessionContent(
             @PathVariable Long sessionContentId,
@@ -117,15 +127,16 @@ public class SessionContentController {
         return ResponseEntity.noContent().build();
     }
 
-    // ================= PREVIEW =================
+    // ================= PREVIEW (Batch Based) =================
     @GetMapping("/preview/{sessionContentId}")
     public ResponseEntity<Resource> previewSessionContent(
-            @PathVariable Long sessionContentId) throws IOException {
+            @PathVariable Long sessionContentId,
+            @RequestParam("batchId") Long batchId) throws IOException {
 
         requirePermission("SESSION_CONTENT_VIEW");
 
         SessionContent content =
-                sessionContentService.getSessionContentById(sessionContentId);
+                sessionContentService.getSessionContentById(sessionContentId, batchId);
 
         if (content.getFileUrl() == null) {
             throw new ResourceNotFoundException("File not uploaded yet");
@@ -149,15 +160,16 @@ public class SessionContentController {
                 .body(resource);
     }
 
-    // ================= DOWNLOAD =================
+    // ================= DOWNLOAD (Batch Based) =================
     @GetMapping("/download/{sessionContentId}")
     public ResponseEntity<Resource> downloadSessionContent(
-            @PathVariable Long sessionContentId) throws IOException {
+            @PathVariable Long sessionContentId,
+            @RequestParam("batchId") Long batchId) throws IOException {
 
         requirePermission("SESSION_CONTENT_DOWNLOAD");
 
         SessionContent content =
-                sessionContentService.getSessionContentById(sessionContentId);
+                sessionContentService.getSessionContentById(sessionContentId, batchId);
 
         if (content.getFileUrl() == null) {
             throw new ResourceNotFoundException("File not uploaded yet");

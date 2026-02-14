@@ -9,7 +9,7 @@ import lombok.Setter;
 @Table(
     name = "exam_question",
     uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"exam_id", "question_id"})
+        @UniqueConstraint(columnNames = {"exam_section_id", "question_id"})
     }
 )
 @Getter
@@ -22,14 +22,13 @@ public class ExamQuestion {
     @Column(name = "exam_question_id")
     private Long examQuestionId;
 
-    @Column(name = "exam_id", nullable = false)
-    private Long examId;
+    // 🔥 Now linked to ExamSection (not directly to Exam)
+    @Column(name = "exam_section_id", nullable = false)
+    private Long examSectionId;
 
-    // 🔑 FK column (still exists)
     @Column(name = "question_id", nullable = false)
     private Long questionId;
 
-    // ✅ JPA relationship (READ-ONLY, SAFE)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(
         name = "question_id",

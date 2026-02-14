@@ -11,7 +11,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -34,11 +33,9 @@ public class Batch {
     @Column(name = "batch_name", nullable = false)
     private String batchName;
 
-    // ✅ NEW FIELD (comes from User module)
     @Column(name = "trainer_id", nullable = false)
     private Long trainerId;
 
-    // 🔹 Snapshot / display field
     @Column(name = "trainer_name", nullable = false)
     private String trainerName;
 
@@ -50,6 +47,21 @@ public class Batch {
 
     @Column(name = "max_students")
     private Integer maxStudents;
+
+    // ===============================
+    // 💰 FREE OR PAID CONTROL
+    // ===============================
+    @Column(name = "free_batch", nullable = false)
+    private Boolean freeBatch;
+
+    @Column(name = "fee")
+    private Double fee;
+
+    // ===============================
+    // 🔒 CONTENT ACCESS CONTROL
+    // ===============================
+    @Column(name = "content_access", nullable = false)
+    private Boolean contentAccess;
 
     @Column(name = "status")
     private String status; // Upcoming / Running / Completed
@@ -63,12 +75,33 @@ public class Batch {
     @PrePersist
     protected void onCreate() {
         this.status = "Upcoming";
+
+        // Default values
+        if (this.freeBatch == null) {
+            this.freeBatch = true; // default FREE
+        }
+
+        if (this.contentAccess == null) {
+            this.contentAccess = false; // default blocked
+        }
+
+        // If FREE → remove fee
+        if (Boolean.TRUE.equals(this.freeBatch)) {
+            this.fee = null;
+        }
+
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
 
     @PreUpdate
     protected void onUpdate() {
+
+        // If FREE → always nullify fee
+        if (Boolean.TRUE.equals(this.freeBatch)) {
+            this.fee = null;
+        }
+
         this.updatedAt = LocalDateTime.now();
     }
 }

@@ -10,12 +10,13 @@ public interface TopicContentService {
 
     List<TopicContent> createContentBulk(Long topicId, List<TopicContent> contents);
 
-    // ✅ ADD THIS
     List<TopicContent> getAllContents();
 
-    TopicContent getContentById(Long contentId);
+    // 🔥 UPDATED: Batch-based access
+    TopicContent getContentById(Long contentId, Long batchId);
 
-    List<TopicContent> getContentsByTopicId(Long topicId);
+    // 🔥 UPDATED: Batch-based access
+    List<TopicContent> getContentsByTopicId(Long topicId, Long batchId);
 
     TopicContent updateContent(Long contentId, TopicContent incoming);
 
