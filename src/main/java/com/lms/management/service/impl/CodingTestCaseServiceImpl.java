@@ -1,5 +1,6 @@
 package com.lms.management.service.impl;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -25,12 +26,11 @@ public class CodingTestCaseServiceImpl implements CodingTestCaseService {
         this.questionRepository = questionRepository;
     }
 
+    // 🔥 CREATE MULTIPLE TEST CASES AT ONCE
     @Override
-    public CodingTestCase createTestCase(
+    public List<CodingTestCase> createMultipleTestCases(
             Long questionId,
-            String inputData,
-            String expectedOutput,
-            Boolean hidden) {
+            List<CodingTestCase> testCases) {
 
         Question question = questionRepository.findById(questionId)
                 .orElseThrow(() ->
@@ -41,13 +41,24 @@ public class CodingTestCaseServiceImpl implements CodingTestCaseService {
                     "Test cases allowed only for CODING questions");
         }
 
-        CodingTestCase testCase = new CodingTestCase();
-        testCase.setQuestionId(questionId);
-        testCase.setInputData(inputData);
-        testCase.setExpectedOutput(expectedOutput);
-        testCase.setHidden(hidden != null ? hidden : false);
+        List<CodingTestCase> savedCases = new ArrayList<>();
 
-        return codingTestCaseRepository.save(testCase);
+        for (CodingTestCase request : testCases) {
+
+            CodingTestCase testCase = new CodingTestCase();
+            testCase.setQuestionId(questionId);
+            testCase.setInputData(request.getInputData());
+            testCase.setExpectedOutput(request.getExpectedOutput());
+            testCase.setHidden(
+                    request.getHidden() != null ? request.getHidden() : false
+            );
+
+            savedCases.add(
+                    codingTestCaseRepository.save(testCase)
+            );
+        }
+
+        return savedCases;
     }
 
     @Override
@@ -64,7 +75,10 @@ public class CodingTestCaseServiceImpl implements CodingTestCaseService {
 
         testCase.setInputData(inputData);
         testCase.setExpectedOutput(expectedOutput);
-        testCase.setHidden(hidden != null ? hidden : testCase.getHidden());
+
+        if (hidden != null) {
+            testCase.setHidden(hidden);
+        }
 
         return codingTestCaseRepository.save(testCase);
     }

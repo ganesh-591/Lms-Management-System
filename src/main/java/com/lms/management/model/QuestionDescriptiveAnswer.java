@@ -30,15 +30,23 @@ public class QuestionDescriptiveAnswer {
     @Column(name = "descriptive_answer_id")
     private Long descriptiveAnswerId;
 
-    // FK reference to question (DESCRIPTIVE only)
     @Column(name = "question_id", nullable = false)
     private Long questionId;
 
-    // Admin-defined model answer
+    // ✅ Admin model answer
     @Column(name = "answer_text", nullable = false, columnDefinition = "TEXT")
     private String answerText;
 
-    // Optional evaluation guidance for evaluator
+    // ✅ Comma separated keywords
+    // Example: "inheritance, polymorphism, encapsulation"
+    @Column(name = "keywords", columnDefinition = "TEXT")
+    private String keywords;
+
+    // ✅ Marks awarded per keyword match
+    @Column(name = "keyword_weight")
+    private Double keywordWeight;
+
+    // Optional manual evaluation notes
     @Column(name = "guidelines", columnDefinition = "TEXT")
     private String guidelines;
 

@@ -26,20 +26,18 @@ public class CodingTestCaseController {
         this.codingTestCaseService = codingTestCaseService;
     }
 
-    // ================= CREATE TEST CASE =================
+    // ================= CREATE MULTIPLE TEST CASES =================
     // POST /api/questions/{questionId}/coding-test-cases
     @PostMapping
     @PreAuthorize("hasAuthority('CODING_TEST_CASE_MANAGE')")
-    public ResponseEntity<CodingTestCase> createTestCase(
+    public ResponseEntity<List<CodingTestCase>> createTestCases(
             @PathVariable Long questionId,
-            @RequestBody CodingTestCase request) {
+            @RequestBody List<CodingTestCase> requests) {
 
         return ResponseEntity.ok(
-                codingTestCaseService.createTestCase(
+                codingTestCaseService.createMultipleTestCases(
                         questionId,
-                        request.getInputData(),
-                        request.getExpectedOutput(),
-                        request.getHidden()
+                        requests
                 )
         );
     }

@@ -6,11 +6,10 @@ import com.lms.management.model.CodingTestCase;
 
 public interface CodingTestCaseService {
 
-    CodingTestCase createTestCase(
+    // 🔥 NEW — create multiple test cases at once
+    List<CodingTestCase> createMultipleTestCases(
             Long questionId,
-            String inputData,
-            String expectedOutput,
-            Boolean hidden
+            List<CodingTestCase> testCases
     );
 
     CodingTestCase updateTestCase(

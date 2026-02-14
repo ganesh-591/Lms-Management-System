@@ -24,14 +24,21 @@ public class Question {
     @Column(name = "question_id")
     private Long questionId;
 
-    @Column(name = "question_text", nullable = false, length = 1000)
+    @Column(name = "question_text", length = 1000)
     private String questionText;
+
+    // 🔥 NEW — optional image support
+    @Column(name = "question_image_url")
+    private String questionImageUrl;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "content_type", nullable = false)
+    private ContentType contentType;
 
     @Column(name = "question_type", nullable = false)
     private String questionType;
     // MCQ / DESCRIPTIVE / CODING
 
-    // ✅ Only used when questionType = CODING
     @Enumerated(EnumType.STRING)
     @Column(name = "programming_language")
     private ProgrammingLanguage programmingLanguage;
