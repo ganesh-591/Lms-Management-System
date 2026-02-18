@@ -19,5 +19,6 @@ public interface ExamQuestionService {
 
     void removeExamQuestion(Long examQuestionId);
     
-    List<Map<String, Object>> getExamQuestionsForStudent(Long examId);
+    List<Map<String, Object>> getExamQuestionsForStudent(Long attemptId);
+    
 }

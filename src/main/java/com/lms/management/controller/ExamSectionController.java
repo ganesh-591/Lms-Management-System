@@ -3,7 +3,14 @@ package com.lms.management.controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.lms.management.model.ExamSection;
 import com.lms.management.service.ExamSectionService;
@@ -44,6 +51,22 @@ public class ExamSectionController {
 
         return ResponseEntity.ok(
                 examSectionService.getSectionsByExam(examId)
+        );
+    }
+
+    // 🔥 Toggle shuffle for section
+    @PatchMapping("/{examSectionId}/shuffle")
+    public ResponseEntity<ExamSection> updateShuffle(
+            @PathVariable Long examId,
+            @PathVariable Long examSectionId,
+            @RequestParam Boolean shuffle) {
+
+        return ResponseEntity.ok(
+                examSectionService.updateShuffle(
+                        examId,
+                        examSectionId,
+                        shuffle
+                )
         );
     }
 

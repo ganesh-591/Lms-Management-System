@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.lms.management.model.QuestionOption;
 import com.lms.management.repository.QuestionOptionRepository;
+import com.lms.management.repository.QuestionRepository;
 import com.lms.management.service.QuestionOptionService;
 
 @Service
@@ -15,15 +16,25 @@ public class QuestionOptionServiceImpl
         implements QuestionOptionService {
 
     private final QuestionOptionRepository optionRepository;
+    private final QuestionRepository questionRepository;
+    
 
     public QuestionOptionServiceImpl(
-            QuestionOptionRepository optionRepository) {
+            QuestionOptionRepository optionRepository,
+            QuestionRepository questionRepository) {
+
         this.optionRepository = optionRepository;
+        this.questionRepository = questionRepository;
     }
 
     @Override
     public List<QuestionOption> addOptions(
             Long questionId, List<QuestionOption> options) {
+
+        // 🔥 FIRST CHECK QUESTION EXISTS
+        if (!questionRepository.existsById(questionId)) {
+            throw new IllegalStateException("Question not found");
+        }
 
         for (QuestionOption option : options) {
 
@@ -43,7 +54,7 @@ public class QuestionOptionServiceImpl
     public List<QuestionOption> getOptionsByQuestion(Long questionId) {
         return optionRepository.findByQuestionId(questionId);
     }
-    
+
     @Override
     public QuestionOption updateOption(
             Long questionId,

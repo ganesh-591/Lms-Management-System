@@ -16,4 +16,11 @@ public interface ExamSectionService {
     List<ExamSection> getSectionsByExam(Long examId);
 
     void removeSectionFromExam(Long examSectionId);
+
+    // 🔥 Toggle shuffle for section
+    ExamSection updateShuffle(
+            Long examId,
+            Long examSectionId,
+            Boolean shuffle
+    );
 }

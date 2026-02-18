@@ -55,4 +55,28 @@ public class ExamSettingsServiceImpl implements ExamSettingsService {
                         new ResourceNotFoundException(
                                 "Exam settings not found for examId: " + examId));
     }
+
+    // 🔥 Toggle MCQ option shuffle
+    @Override
+    public ExamSettings updateShuffleOptions(Long examId, Boolean shuffle) {
+
+        Exam exam = examRepository.findById(examId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Exam not found with id: " + examId));
+
+        // 🔒 Keep same enterprise rule
+        if (!"DRAFT".equals(exam.getStatus())) {
+            throw new IllegalStateException(
+                    "Exam settings can be modified only when exam is in DRAFT state");
+        }
+
+        ExamSettings settings = examSettingsRepository.findByExamId(examId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Exam settings not found for examId: " + examId));
+
+        settings.setShuffleOptions(shuffle != null ? shuffle : false);
+
+        return examSettingsRepository.save(settings);
+    }
 }

@@ -2,6 +2,7 @@ package com.lms.management.service.impl;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,7 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
     private final ExamGradingRepository examGradingRepository;
     private final CodingExecutionService codingExecutionService;
     private final ExamSectionRepository examSectionRepository;
+    private final com.lms.management.service.EmailNotificationService emailNotificationService;
 
     public ExamAttemptServiceImpl(
             ExamAttemptRepository examAttemptRepository,
@@ -49,7 +51,8 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
             ExamResponseRepository examResponseRepository,
             ExamGradingRepository examGradingRepository,
             CodingExecutionService codingExecutionService,
-            ExamSectionRepository examSectionRepository) {
+            ExamSectionRepository examSectionRepository,
+            com.lms.management.service.EmailNotificationService emailNotificationService) {
 
         this.examAttemptRepository = examAttemptRepository;
         this.examRepository = examRepository;
@@ -60,17 +63,18 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
         this.examGradingRepository = examGradingRepository;
         this.codingExecutionService = codingExecutionService;
         this.examSectionRepository = examSectionRepository;
+        this.emailNotificationService = emailNotificationService;
     }
 
     private void checkAndAutoSubmitIfExpired(ExamAttempt attempt) {
 
-        if (!"IN_PROGRESS".equals(attempt.getStatus())) return;
+        if (!"IN_PROGRESS".equals(attempt.getStatus()))
+            return;
 
         Exam exam = examRepository.findById(attempt.getExamId())
                 .orElseThrow(() -> new IllegalStateException("Exam not found"));
 
-        LocalDateTime expiry =
-                attempt.getStartTime().plusMinutes(exam.getDurationMinutes());
+        LocalDateTime expiry = attempt.getStartTime().plusMinutes(exam.getDurationMinutes());
 
         if (LocalDateTime.now().isAfter(expiry)) {
             autoSubmitAttempt(attempt.getAttemptId(), attempt.getStudentId());
@@ -88,23 +92,30 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
         }
 
         // ✅ LOAD SECTIONS FIRST
-        List<ExamSection> sections =
-                examSectionRepository.findByExamIdOrderBySectionOrderAsc(examId);
+        List<ExamSection> sections = examSectionRepository.findByExamIdOrderBySectionOrderAsc(examId);
 
         if (sections.isEmpty()) {
             throw new IllegalStateException("No sections in exam");
         }
 
-        // ✅ THEN LOAD QUESTIONS FROM EACH SECTION
+        // ✅ LOAD QUESTIONS FROM EACH SECTION (WITH SHUFFLE SUPPORT)
         List<ExamQuestion> questions = new ArrayList<>();
 
         for (ExamSection section : sections) {
-            questions.addAll(
-                    examQuestionRepository
-                            .findByExamSectionIdOrderByQuestionOrderAsc(
-                                    section.getExamSectionId()
-                            )
-            );
+
+            List<ExamQuestion> sectionQuestions = examQuestionRepository
+                    .findByExamSectionIdOrderByQuestionOrderAsc(
+                            section.getExamSectionId());
+
+            if (sectionQuestions.isEmpty())
+                continue;
+
+            // 🔥 SHUFFLE ONCE PER ATTEMPT
+            if (Boolean.TRUE.equals(section.getShuffleQuestions())) {
+                Collections.shuffle(sectionQuestions);
+            }
+
+            questions.addAll(sectionQuestions);
         }
 
         if (questions.isEmpty()) {
@@ -164,7 +175,8 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
             throw new AccessDeniedException("Not your attempt");
         }
 
-        if (!"IN_PROGRESS".equals(attempt.getStatus())) return attempt;
+        if (!"IN_PROGRESS".equals(attempt.getStatus()))
+            return attempt;
 
         attempt.setStatus("EVALUATING");
         attempt.setEndTime(LocalDateTime.now());
@@ -184,8 +196,7 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
 
         examResponseService.autoEvaluateMcq(attemptId);
 
-        List<ExamResponse> responses =
-                examResponseRepository.findByAttemptId(attemptId);
+        List<ExamResponse> responses = examResponseRepository.findByAttemptId(attemptId);
 
         for (ExamResponse r : responses) {
             if (r.getCodingSubmissionCode() != null
@@ -206,6 +217,21 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
         attempt.setStatus("EVALUATED");
 
         examAttemptRepository.save(attempt);
+
+        // 📧 SEND EXAM RESULT EMAIL
+        try {
+            Exam exam = examRepository.findById(attempt.getExamId()).orElseThrow();
+            double percentage = (attempt.getScore() / exam.getTotalMarks()) * 100;
+            boolean passed = percentage >= exam.getPassPercentage();
+
+            emailNotificationService.sendExamResultNotification(
+                    attempt.getStudentId(),
+                    exam.getTitle(),
+                    attempt.getScore(),
+                    passed);
+        } catch (Exception e) {
+            System.err.println("Failed to send exam result email: " + e.getMessage());
+        }
     }
 
     @Override
@@ -225,11 +251,9 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
         Exam exam = examRepository.findById(attempt.getExamId())
                 .orElseThrow();
 
-        double percentage =
-                (attempt.getScore() / exam.getTotalMarks()) * 100;
+        double percentage = (attempt.getScore() / exam.getTotalMarks()) * 100;
 
-        boolean passed =
-                percentage >= exam.getPassPercentage();
+        boolean passed = percentage >= exam.getPassPercentage();
 
         Map<String, Object> result = new HashMap<>();
         result.put("attemptId", attemptId);

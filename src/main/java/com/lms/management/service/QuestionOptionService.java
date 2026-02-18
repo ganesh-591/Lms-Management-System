@@ -7,14 +7,15 @@ import com.lms.management.model.QuestionOption;
 public interface QuestionOptionService {
 
     List<QuestionOption> addOptions(
-            Long questionId, List<QuestionOption> options);
+            Long questionId,
+            List<QuestionOption> options);
 
     List<QuestionOption> getOptionsByQuestion(Long questionId);
 
-    void deleteOption(Long optionId);
-    
     QuestionOption updateOption(
             Long questionId,
             Long optionId,
             QuestionOption request);
+
+    void deleteOption(Long optionId);
 }

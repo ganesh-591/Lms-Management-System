@@ -21,129 +21,115 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AttendanceSummaryServiceImpl
-        implements AttendanceSummaryService {
+                implements AttendanceSummaryService {
 
-    private final AttendanceRecordRepository attendanceRecordRepository;
-    private final AttendanceConfigRepository attendanceConfigRepository;
-    private final EmailNotificationService emailNotificationService;
-    private final StudentBatchRepository studentBatchRepository;
+        private final AttendanceRecordRepository attendanceRecordRepository;
+        private final AttendanceConfigRepository attendanceConfigRepository;
+        private final EmailNotificationService emailNotificationService;
+        private final StudentBatchRepository studentBatchRepository;
 
-    @Override
-    public Map<String, Object> getStudentEligibilitySummary(
-            Long studentId,
-            Long courseId,
-            Long batchId
-    ) {
+        @Override
+        public Map<String, Object> getStudentEligibilitySummary(
+                        Long studentId,
+                        Long courseId,
+                        Long batchId) {
 
-        // 1️⃣ Fetch attendance records (RAW DATA)
-        List<AttendanceRecord> records =
-                attendanceRecordRepository.findByStudentId(studentId);
+                // 1️⃣ Fetch attendance records (RAW DATA)
+                List<AttendanceRecord> records = attendanceRecordRepository.findByStudentId(studentId);
 
-        // 2️⃣ Fetch config (THRESHOLDS)
-        AttendanceConfig config =
-                attendanceConfigRepository
-                        .findByCourseIdAndBatchId(courseId, batchId)
-                        .orElseThrow(() ->
-                                new IllegalStateException(
-                                        "Attendance config not found"));
+                // 2️⃣ Fetch config (THRESHOLDS)
+                AttendanceConfig config = attendanceConfigRepository
+                                .findByCourseIdAndBatchId(courseId, batchId)
+                                .orElseThrow(() -> new IllegalStateException(
+                                                "Attendance config not found"));
 
-        long totalSessions = 0;
-        long presentCount = 0;
-        long absentCount = 0;
+                long totalSessions = 0;
+                long presentCount = 0;
+                long absentCount = 0;
 
-        for (AttendanceRecord record : records) {
+                for (AttendanceRecord record : records) {
 
-            String status = record.getStatus();
+                        String status = record.getStatus();
 
-            // EXCUSED = ignored
-            if ("EXCUSED".equalsIgnoreCase(status)) {
-                continue;
-            }
+                        // EXCUSED = ignored
+                        if ("EXCUSED".equalsIgnoreCase(status)) {
+                                continue;
+                        }
 
-            totalSessions++;
+                        totalSessions++;
 
-            if ("PRESENT".equalsIgnoreCase(status)
-                    || "LATE".equalsIgnoreCase(status)
-                    || "PARTIAL".equalsIgnoreCase(status)) {
-                presentCount++;
-            } else if ("ABSENT".equalsIgnoreCase(status)) {
-                absentCount++;
-            }
+                        if ("PRESENT".equalsIgnoreCase(status)
+                                        || "LATE".equalsIgnoreCase(status)
+                                        || "PARTIAL".equalsIgnoreCase(status)) {
+                                presentCount++;
+                        } else if ("ABSENT".equalsIgnoreCase(status)) {
+                                absentCount++;
+                        }
+                }
+
+                int attendancePercentage = totalSessions == 0
+                                ? 0
+                                : (int) ((presentCount * 100) / totalSessions);
+
+                boolean atRisk = attendancePercentage < config.getAtRiskPercent();
+
+                boolean examEligible = attendancePercentage >= config.getExamEligibilityPercent();
+
+                // 3️⃣ Response
+                Map<String, Object> response = new HashMap<>();
+                response.put("totalSessions", totalSessions);
+                response.put("presentCount", presentCount);
+                response.put("absentCount", absentCount);
+                response.put("attendancePercentage", attendancePercentage);
+                response.put("atRisk", atRisk);
+                response.put("examEligible", examEligible);
+
+                // REMOVED: Email trigger moved to scheduled/event-based logic to prevent spam
+                // on view.
+
+                return response;
         }
 
-        int attendancePercentage =
-                totalSessions == 0
-                        ? 0
-                        : (int) ((presentCount * 100) / totalSessions);
+        @Override
+        public Map<String, Object> getBatchSummary(Long courseId, Long batchId) {
 
-        boolean atRisk =
-                attendancePercentage < config.getAtRiskPercent();
+                List<Long> studentIds = studentBatchRepository.findStudentIdsByBatchId(batchId);
 
-        boolean examEligible =
-                attendancePercentage >=
-                        config.getExamEligibilityPercent();
+                int totalStudents = studentIds.size();
+                int atRiskCount = 0;
+                int eligibleCount = 0;
+                int totalPercent = 0;
 
-        // 3️⃣ Response
-        Map<String, Object> response = new HashMap<>();
-        response.put("totalSessions", totalSessions);
-        response.put("presentCount", presentCount);
-        response.put("absentCount", absentCount);
-        response.put("attendancePercentage", attendancePercentage);
-        response.put("atRisk", atRisk);
-        response.put("examEligible", examEligible);
-        
-        if (atRisk) {
-            emailNotificationService.sendAttendanceAlert(
-                    studentId,
-                    "AT_RISK",
-                    attendancePercentage
-            );
+                // ✅ SINGLE LOOP ONLY
+                for (Long studentId : studentIds) {
+
+                        Map<String, Object> summary = getStudentEligibilitySummary(studentId, courseId, batchId);
+
+                        // ✅ CORRECT KEYS (MATCH STUDENT SUMMARY)
+                        Object percentObj = summary.get("attendancePercentage");
+                        Boolean atRiskObj = (Boolean) summary.get("atRisk");
+                        Boolean eligibleObj = (Boolean) summary.get("examEligible");
+
+                        int percent = percentObj == null ? 0 : ((Number) percentObj).intValue();
+                        boolean atRisk = Boolean.TRUE.equals(atRiskObj);
+                        boolean eligible = Boolean.TRUE.equals(eligibleObj);
+
+                        totalPercent += percent;
+
+                        if (atRisk)
+                                atRiskCount++;
+                        if (eligible)
+                                eligibleCount++;
+                }
+
+                int avgPercent = totalStudents == 0 ? 0 : totalPercent / totalStudents;
+
+                Map<String, Object> response = new HashMap<>();
+                response.put("totalStudents", totalStudents);
+                response.put("atRiskCount", atRiskCount);
+                response.put("eligibleCount", eligibleCount);
+                response.put("averageAttendancePercent", avgPercent);
+
+                return response;
         }
-
-        return response;
-    }
-    
-    @Override
-    public Map<String, Object> getBatchSummary(Long courseId, Long batchId) {
-
-        List<Long> studentIds =
-                studentBatchRepository.findStudentIdsByBatchId(batchId);
-
-        int totalStudents = studentIds.size();
-        int atRiskCount = 0;
-        int eligibleCount = 0;
-        int totalPercent = 0;
-
-        // ✅ SINGLE LOOP ONLY
-        for (Long studentId : studentIds) {
-
-            Map<String, Object> summary =
-                    getStudentEligibilitySummary(studentId, courseId, batchId);
-
-            // ✅ CORRECT KEYS (MATCH STUDENT SUMMARY)
-            Object percentObj = summary.get("attendancePercentage");
-            Boolean atRiskObj = (Boolean) summary.get("atRisk");
-            Boolean eligibleObj = (Boolean) summary.get("examEligible");
-
-            int percent = percentObj == null ? 0 : ((Number) percentObj).intValue();
-            boolean atRisk = Boolean.TRUE.equals(atRiskObj);
-            boolean eligible = Boolean.TRUE.equals(eligibleObj);
-
-            totalPercent += percent;
-
-            if (atRisk) atRiskCount++;
-            if (eligible) eligibleCount++;
-        }
-
-        int avgPercent =
-                totalStudents == 0 ? 0 : totalPercent / totalStudents;
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("totalStudents", totalStudents);
-        response.put("atRiskCount", atRiskCount);
-        response.put("eligibleCount", eligibleCount);
-        response.put("averageAttendancePercent", avgPercent);
-
-        return response;
-    }
 }

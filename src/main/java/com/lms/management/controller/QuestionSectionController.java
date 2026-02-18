@@ -3,7 +3,13 @@ package com.lms.management.controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.lms.management.model.QuestionSection;
 import com.lms.management.service.QuestionSectionService;
@@ -22,15 +28,13 @@ public class QuestionSectionController {
     // ================= CREATE SECTION =================
     @PostMapping
     public ResponseEntity<QuestionSection> createSection(
-            @RequestParam String sectionName,
-            @RequestParam(required = false) String description,
-            @RequestParam(required = false) Boolean shuffleQuestions) {
+            @RequestBody QuestionSection request) {
 
         return ResponseEntity.ok(
                 questionSectionService.createSection(
-                        sectionName,
-                        description,
-                        shuffleQuestions
+                        request.getSectionName(),
+                        request.getSectionDescription(),
+                        request.getShuffleQuestions()
                 )
         );
     }

@@ -16,4 +16,6 @@ public interface ExamResponseRepository
             Long attemptId, Long examQuestionId);
 
     List<ExamResponse> findByAttemptId(Long attemptId);
+    
+    List<ExamResponse> findByAttemptIdOrderByResponseIdAsc(Long attemptId);
 }

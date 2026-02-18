@@ -1,6 +1,7 @@
 package com.lms.management.service.impl;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -9,8 +10,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.lms.management.model.ExamQuestion;
+import com.lms.management.model.ExamResponse;
 import com.lms.management.model.Question;
 import com.lms.management.repository.ExamQuestionRepository;
+import com.lms.management.repository.ExamResponseRepository;
+import com.lms.management.repository.ExamSettingsRepository;
 import com.lms.management.repository.QuestionOptionRepository;
 import com.lms.management.repository.QuestionRepository;
 import com.lms.management.service.ExamQuestionService;
@@ -22,15 +26,22 @@ public class ExamQuestionServiceImpl implements ExamQuestionService {
     private final ExamQuestionRepository examQuestionRepository;
     private final QuestionRepository questionRepository;
     private final QuestionOptionRepository questionOptionRepository;
+    private final ExamResponseRepository examResponseRepository;
+    private final ExamSettingsRepository examSettingsRepository;
+    
 
     public ExamQuestionServiceImpl(
             ExamQuestionRepository examQuestionRepository,
             QuestionRepository questionRepository,
-            QuestionOptionRepository questionOptionRepository
+            QuestionOptionRepository questionOptionRepository,
+            ExamResponseRepository examResponseRepository,
+            ExamSettingsRepository examSettingsRepository
     ) {
         this.examQuestionRepository = examQuestionRepository;
         this.questionRepository = questionRepository;
         this.questionOptionRepository = questionOptionRepository;
+        this.examResponseRepository = examResponseRepository;
+        this.examSettingsRepository = examSettingsRepository;
     }
 
     // ================= ADD QUESTIONS TO EXAM SECTION =================
@@ -56,7 +67,7 @@ public class ExamQuestionServiceImpl implements ExamQuestionService {
         return examQuestionRepository.saveAll(questions);
     }
 
-    // ================= GET QUESTIONS BY SECTION =================
+    // ================= GET QUESTIONS BY SECTION (ADMIN) =================
     @Override
     public List<ExamQuestion> getQuestionsBySection(Long examSectionId) {
 
@@ -92,20 +103,31 @@ public class ExamQuestionServiceImpl implements ExamQuestionService {
         examQuestionRepository.deleteById(examQuestionId);
     }
 
-    // ================= GET QUESTIONS FOR STUDENT (BY SECTION) =================
+    // ================= GET QUESTIONS FOR STUDENT (PER ATTEMPT) =================
     @Override
-    public List<Map<String, Object>> getExamQuestionsForStudent(Long examSectionId) {
+    public List<Map<String, Object>> getExamQuestionsForStudent(Long attemptId) {
 
-        List<ExamQuestion> examQuestions =
-                examQuestionRepository
-                        .findByExamSectionIdOrderByQuestionOrderAsc(examSectionId);
+        // 🔥 FETCH FROM exam_response TO PRESERVE SHUFFLE ORDER
+        List<ExamResponse> responses =
+                examResponseRepository
+                        .findByAttemptIdOrderByResponseIdAsc(attemptId);
+
+        if (responses.isEmpty()) {
+            throw new IllegalStateException("No questions found for this attempt");
+        }
 
         List<Map<String, Object>> result = new ArrayList<>();
 
-        for (ExamQuestion eq : examQuestions) {
+        for (ExamResponse response : responses) {
+
+            ExamQuestion eq =
+                    examQuestionRepository
+                            .findById(response.getExamQuestionId())
+                            .orElseThrow();
 
             Question question =
-                    questionRepository.findById(eq.getQuestionId())
+                    questionRepository
+                            .findById(eq.getQuestionId())
                             .orElseThrow();
 
             Map<String, Object> q = new HashMap<>();
@@ -114,12 +136,11 @@ public class ExamQuestionServiceImpl implements ExamQuestionService {
             q.put("questionText", question.getQuestionText());
             q.put("questionType", question.getQuestionType());
             q.put("marks", eq.getMarks());
-            q.put("questionOrder", eq.getQuestionOrder());
 
             // ================= MCQ OPTIONS =================
             if ("MCQ".equalsIgnoreCase(question.getQuestionType())) {
 
-                q.put("options",
+                List<Map<String, Object>> options =
                         questionOptionRepository
                                 .findByQuestionId(question.getQuestionId())
                                 .stream()
@@ -129,8 +150,25 @@ public class ExamQuestionServiceImpl implements ExamQuestionService {
                                     option.put("optionText", opt.getOptionText());
                                     return option;
                                 })
-                                .toList()
-                );
+                                .toList();
+
+                Boolean shuffleOptions =
+                        examSettingsRepository
+                                .findByExamId(
+                                        examQuestionRepository
+                                                .findById(eq.getExamQuestionId())
+                                                .orElseThrow()
+                                                .getExamSectionId()
+                                )
+                                .map(settings -> settings.getShuffleOptions())
+                                .orElse(false);
+
+                if (Boolean.TRUE.equals(shuffleOptions)) {
+                    options = new ArrayList<>(options);
+                    Collections.shuffle(options);
+                }
+
+                q.put("options", options);
             }
 
             result.add(q);

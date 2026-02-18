@@ -18,7 +18,7 @@ import com.lms.management.model.ExamQuestion;
 import com.lms.management.service.ExamQuestionService;
 
 @RestController
-@RequestMapping("/api/exams/{examId}/questions")
+@RequestMapping("/api/exam-sections/{examSectionId}/questions")
 public class ExamQuestionController {
 
     private final ExamQuestionService examQuestionService;
@@ -31,38 +31,36 @@ public class ExamQuestionController {
     @PostMapping
     @PreAuthorize("hasAuthority('EXAM_QUESTION_MANAGE')")
     public ResponseEntity<List<ExamQuestion>> addQuestions(
-            @PathVariable Long examId,
+            @PathVariable Long examSectionId,
             @RequestBody List<ExamQuestion> questions) {
 
         return ResponseEntity.ok(
-                examQuestionService.addQuestions(examId, questions)
+                examQuestionService.addQuestions(examSectionId, questions)
         );
     }
 
-    // ================= GET QUESTIONS (SAFE READ – ADMIN / STUDENT) =================
-    // 🔴 IMPORTANT: DO NOT return ExamQuestion entity
+    // ================= GET QUESTIONS =================
     @GetMapping
     @PreAuthorize("hasAuthority('EXAM_QUESTION_VIEW')")
     public ResponseEntity<List<Map<String, Object>>> getQuestions(
-            @PathVariable Long examId) {
+            @PathVariable Long examSectionId) {
 
         return ResponseEntity.ok(
-                examQuestionService.getExamQuestionsForStudent(examId)
+                examQuestionService.getExamQuestionsForStudent(examSectionId)
         );
     }
 
     // ================= UPDATE MARKS / ORDER =================
     @PutMapping("/{examQuestionId}")
-    @PreAuthorize("hasAuthority('EXAM_QUESTION_MANAGE')")
-    public ResponseEntity<ExamQuestion> updateQuestion(
-            @PathVariable Long examId,
+    public ResponseEntity<Void> updateQuestion(
+            @PathVariable Long examSectionId,
             @PathVariable Long examQuestionId,
             @RequestBody ExamQuestion request) {
 
-        return ResponseEntity.ok(
-                examQuestionService.updateExamQuestion(
-                        examId, examQuestionId, request)
-        );
+        examQuestionService.updateExamQuestion(
+                examSectionId, examQuestionId, request);
+
+        return ResponseEntity.noContent().build();
     }
 
     // ================= REMOVE QUESTION =================
@@ -73,16 +71,5 @@ public class ExamQuestionController {
 
         examQuestionService.removeExamQuestion(examQuestionId);
         return ResponseEntity.noContent().build();
-    }
-
-    // ================= STUDENT VIEW (OPTIONAL – CAN KEEP OR REMOVE) =================
-    @GetMapping("/view")
-    @PreAuthorize("hasAuthority('EXAM_ATTEMPT_START')")
-    public ResponseEntity<List<Map<String, Object>>> getExamQuestionsForStudent(
-            @PathVariable Long examId) {
-
-        return ResponseEntity.ok(
-                examQuestionService.getExamQuestionsForStudent(examId)
-        );
     }
 }
