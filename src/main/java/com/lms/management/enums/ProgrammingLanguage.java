@@ -1,4 +1,4 @@
-package com.lms.management.model;
+package com.lms.management.enums;
 
 public enum ProgrammingLanguage {
 

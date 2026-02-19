@@ -1,5 +1,7 @@
 package com.lms.management.model;
 
+import com.lms.management.enums.ProgrammingLanguage;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
