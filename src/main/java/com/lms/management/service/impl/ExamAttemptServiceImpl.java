@@ -11,6 +11,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.lms.management.enums.TargetType; // ✅ ADDED
 import com.lms.management.model.Exam;
 import com.lms.management.model.ExamAttempt;
 import com.lms.management.model.ExamQuestion;
@@ -23,6 +24,7 @@ import com.lms.management.repository.ExamRepository;
 import com.lms.management.repository.ExamResponseRepository;
 import com.lms.management.repository.ExamSectionRepository;
 import com.lms.management.repository.ExamSettingsRepository;
+import com.lms.management.service.CertificateService; // ✅ ADDED
 import com.lms.management.service.CodingExecutionService;
 import com.lms.management.service.ExamAttemptService;
 import com.lms.management.service.ExamResponseService;
@@ -41,6 +43,7 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
     private final CodingExecutionService codingExecutionService;
     private final ExamSectionRepository examSectionRepository;
     private final com.lms.management.service.EmailNotificationService emailNotificationService;
+    private final CertificateService certificateService; // ✅ ADDED
 
     public ExamAttemptServiceImpl(
             ExamAttemptRepository examAttemptRepository,
@@ -52,7 +55,8 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
             ExamGradingRepository examGradingRepository,
             CodingExecutionService codingExecutionService,
             ExamSectionRepository examSectionRepository,
-            com.lms.management.service.EmailNotificationService emailNotificationService) {
+            com.lms.management.service.EmailNotificationService emailNotificationService,
+            CertificateService certificateService) { // ✅ ADDED
 
         this.examAttemptRepository = examAttemptRepository;
         this.examRepository = examRepository;
@@ -64,6 +68,7 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
         this.codingExecutionService = codingExecutionService;
         this.examSectionRepository = examSectionRepository;
         this.emailNotificationService = emailNotificationService;
+        this.certificateService = certificateService; // ✅ ADDED
     }
 
     private void checkAndAutoSubmitIfExpired(ExamAttempt attempt) {
@@ -91,14 +96,12 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
             throw new IllegalStateException("Exam not available");
         }
 
-        // ✅ LOAD SECTIONS FIRST
         List<ExamSection> sections = examSectionRepository.findByExamIdOrderBySectionOrderAsc(examId);
 
         if (sections.isEmpty()) {
             throw new IllegalStateException("No sections in exam");
         }
 
-        // ✅ LOAD QUESTIONS FROM EACH SECTION (WITH SHUFFLE SUPPORT)
         List<ExamQuestion> questions = new ArrayList<>();
 
         for (ExamSection section : sections) {
@@ -110,7 +113,6 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
             if (sectionQuestions.isEmpty())
                 continue;
 
-            // 🔥 SHUFFLE ONCE PER ATTEMPT
             if (Boolean.TRUE.equals(section.getShuffleQuestions())) {
                 Collections.shuffle(sectionQuestions);
             }
@@ -143,7 +145,6 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
         return attempt;
     }
 
-    // 🔥 Everything below remains unchanged
     @Override
     public ExamAttempt submitAttempt(Long attemptId, Long studentId) {
         ExamAttempt attempt = examAttemptRepository.findById(attemptId)
@@ -218,19 +219,32 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
 
         examAttemptRepository.save(attempt);
 
-        // 📧 SEND EXAM RESULT EMAIL
+        // ===============================
+        // 🎓 AUTO CERTIFICATE GENERATION
+        // ===============================
         try {
             Exam exam = examRepository.findById(attempt.getExamId()).orElseThrow();
             double percentage = (attempt.getScore() / exam.getTotalMarks()) * 100;
             boolean passed = percentage >= exam.getPassPercentage();
 
+            if (passed) {
+                certificateService.generateCertificate(
+                        attempt.getStudentId(),
+                        TargetType.EXAM,
+                        exam.getExamId(),
+                        attempt.getScore()
+                );
+            }
+
+            // 📧 SEND EMAIL
             emailNotificationService.sendExamResultNotification(
                     attempt.getStudentId(),
                     exam.getTitle(),
                     attempt.getScore(),
                     passed);
+
         } catch (Exception e) {
-            System.err.println("Failed to send exam result email: " + e.getMessage());
+            System.err.println("Post evaluation process failed: " + e.getMessage());
         }
     }
 

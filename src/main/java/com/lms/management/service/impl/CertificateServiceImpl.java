@@ -9,6 +9,7 @@ import com.lms.management.enums.CertificateStatus;
 import com.lms.management.enums.TargetType;
 import com.lms.management.model.Certificate;
 import com.lms.management.repository.CertificateRepository;
+import com.lms.management.service.CertificatePdfService;
 import com.lms.management.service.CertificateService;
 
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 public class CertificateServiceImpl implements CertificateService {
 
     private final CertificateRepository certificateRepository;
+    private final CertificatePdfService certificatePdfService; // ✅ ADDED
 
     @Override
     public Certificate generateCertificate(
@@ -35,7 +37,10 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         // 2️⃣ Generate certificate ID
-        String certificateId = "CERT-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String certificateId = "CERT-" + UUID.randomUUID()
+                .toString()
+                .substring(0, 8)
+                .toUpperCase();
 
         // 3️⃣ Generate secure token
         String verificationToken = UUID.randomUUID().toString();
@@ -55,7 +60,21 @@ public class CertificateServiceImpl implements CertificateService {
                 .updatedAt(LocalDateTime.now())
                 .build();
 
-        return certificateRepository.save(certificate);
+        // 5️⃣ Save first to generate ID
+        Certificate savedCertificate = certificateRepository.save(certificate);
+
+        // 6️⃣ Generate PDF
+        String pdfPath = certificatePdfService.generatePdf(
+                savedCertificate,
+                "Student " + userId,          // Later replace with real student name
+                targetType.name() + " " + targetId
+        );
+
+        // 7️⃣ Save PDF path
+        savedCertificate.setPdfUrl(pdfPath);
+        savedCertificate.setUpdatedAt(LocalDateTime.now());
+
+        return certificateRepository.save(savedCertificate);
     }
 
     @Override

@@ -38,6 +38,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/courses/share/**").permitAll()
                 .requestMatchers("/api/content-files/preview/**").permitAll()
                 .requestMatchers("/api/attendance/summary/**").permitAll()
+                .requestMatchers("/api/certificates/*/download").permitAll()
+                .requestMatchers("/api/certificates/verify").permitAll()
 
                 // ✅ ALLOW FEE SERVICE TO READ COURSE DATA
                 .requestMatchers(HttpMethod.GET, "/api/courses/**").permitAll()

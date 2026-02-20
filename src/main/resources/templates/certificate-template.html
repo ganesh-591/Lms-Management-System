@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8"/>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            border: 8px solid #1e3a8a;
+            padding: 60px;
+        }
+        h1 {
+            font-size: 36px;
+            color: #1e3a8a;
+        }
+        .name {
+            font-size: 28px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .details {
+            font-size: 18px;
+            margin-top: 20px;
+        }
+        .footer {
+            margin-top: 40px;
+            font-size: 14px;
+            color: gray;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Certificate of Completion</h1>
+
+<p>This is to certify that</p>
+
+<div class="name">{{studentName}}</div>
+
+<p>has successfully completed</p>
+
+<div class="details">
+    <strong>{{examTitle}}</strong><br/>
+    Score: {{score}}<br/>
+    Date: {{date}}
+</div>
+
+<br/>
+<img src="data:image/png;base64,{{qrCode}}" width="120" height="120"/>
+
+<div class="footer">
+    Certificate ID: {{certificateId}}
+</div>
+
+</body>
+</html>
