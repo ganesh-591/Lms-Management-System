@@ -47,11 +47,17 @@ public class Certificate {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "student_name", nullable = false)
+    private String studentName;   // 🔥 Snapshot field
+
     @Column(name = "target_type", nullable = false)
     private TargetType targetType;
 
     @Column(name = "target_id", nullable = false)
     private Long targetId;
+
+    @Column(name = "event_title", nullable = false)
+    private String eventTitle;    // 🔥 Snapshot field
 
     @Column(name = "template_id")
     private Long templateId;

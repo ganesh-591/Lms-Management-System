@@ -18,4 +18,16 @@ public interface ExamAttemptRepository
 
     Optional<ExamAttempt> findFirstByExamIdAndStudentIdAndStatus(
             Long examId, Long studentId, String status);
+    
+    Optional<ExamAttempt>
+    findTopByStudentIdAndExamIdAndStatusOrderByScoreDesc(
+            Long studentId,
+            Long examId,
+            String status
+    );
+    Optional<ExamAttempt> findTopByExamIdAndStudentIdAndStatusOrderByScoreDesc(
+            Long examId,
+            Long studentId,
+            String status
+    );
 }

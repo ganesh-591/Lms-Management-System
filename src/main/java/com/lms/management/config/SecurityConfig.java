@@ -30,24 +30,26 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
 
-                // ✅ ALLOW PREFLIGHT
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+            	    // ✅ ALLOW PREFLIGHT
+            	    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // ✅ PUBLIC STATIC
-                .requestMatchers("/uploads/**").permitAll()
-                .requestMatchers("/api/courses/share/**").permitAll()
-                .requestMatchers("/api/content-files/preview/**").permitAll()
-                .requestMatchers("/api/attendance/summary/**").permitAll()
-                .requestMatchers("/api/certificates/*/download").permitAll()
-                .requestMatchers("/api/certificates/verify").permitAll()
+            	    // ✅ PUBLIC STATIC
+            	    .requestMatchers("/uploads/**").permitAll()
+            	    .requestMatchers("/api/courses/share/**").permitAll()
+            	    .requestMatchers("/api/content-files/preview/**").permitAll()
+            	    .requestMatchers("/api/attendance/summary/**").permitAll()
+            	    .requestMatchers("/api/certificates/*/download").permitAll()
+            	    .requestMatchers("/api/certificates/verify").permitAll()
 
-                // ✅ ALLOW FEE SERVICE TO READ COURSE DATA
-                .requestMatchers(HttpMethod.GET, "/api/courses/**").permitAll()
+            	    // 🔥 ADD THIS LINE
+            	    .requestMatchers("/api/certificates/public/**").permitAll()
 
-                // 🔐 EVERYTHING ELSE NEEDS JWT
-                .anyRequest().authenticated()
-            )
+            	    // ✅ ALLOW FEE SERVICE TO READ COURSE DATA
+            	    .requestMatchers(HttpMethod.GET, "/api/courses/**").permitAll()
 
+            	    // 🔐 EVERYTHING ELSE NEEDS JWT
+            	    .anyRequest().authenticated()
+            	)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

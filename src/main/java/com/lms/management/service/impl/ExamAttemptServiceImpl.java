@@ -228,11 +228,13 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
             boolean passed = percentage >= exam.getPassPercentage();
 
             if (passed) {
-                certificateService.generateCertificate(
+                certificateService.generateCertificateIfEligible(
                         attempt.getStudentId(),
                         TargetType.EXAM,
                         exam.getExamId(),
-                        attempt.getScore()
+                        "Student " + attempt.getStudentId(),
+                        exam.getTitle(),
+                        attempt.getScore()   // ✅ ADD THIS
                 );
             }
 

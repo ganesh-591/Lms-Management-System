@@ -8,7 +8,11 @@ import org.springframework.stereotype.Service;
 import com.lms.management.enums.CertificateStatus;
 import com.lms.management.enums.TargetType;
 import com.lms.management.model.Certificate;
+import com.lms.management.model.CertificateAuditLog;
+import com.lms.management.repository.CertificateAuditLogRepository;
 import com.lms.management.repository.CertificateRepository;
+import com.lms.management.repository.ExamAttemptRepository;
+import com.lms.management.service.CertificateEligibilityService;
 import com.lms.management.service.CertificatePdfService;
 import com.lms.management.service.CertificateService;
 
@@ -19,40 +23,85 @@ import lombok.RequiredArgsConstructor;
 public class CertificateServiceImpl implements CertificateService {
 
     private final CertificateRepository certificateRepository;
-    private final CertificatePdfService certificatePdfService; // ✅ ADDED
+    private final CertificatePdfService certificatePdfService;
+    private final CertificateAuditLogRepository auditLogRepository;
+    private final CertificateEligibilityService certificateEligibilityService;
+    private final ExamAttemptRepository examAttemptRepository;
+    
 
     @Override
-    public Certificate generateCertificate(
+    public Certificate generateCertificateIfEligible(
             Long userId,
             TargetType targetType,
             Long targetId,
-            Double score
+            String studentName,
+            String eventTitle,
+            Double score   // TEMP: coming from request
     ) {
 
-        // 1️⃣ Prevent duplicate
+        /*
+         =========================================================
+         🔐 ELIGIBILITY BLOCK (TEMP DISABLED)
+         =========================================================
+
+        boolean eligible = certificateEligibilityService
+                .isEligible(userId, targetType.name(), targetId);
+
+        if (!eligible) {
+            throw new IllegalStateException("User is not eligible for certificate");
+        }
+        */
+
+        /*
+         =========================================================
+         📊 AUTO SCORE FETCH BLOCK (TEMP DISABLED)
+         =========================================================
+
+        ExamAttempt attempt = examAttemptRepository
+                .findTopByStudentIdAndExamIdAndStatusOrderByScoreDesc(
+                        userId,
+                        targetId,
+                        "EVALUATED"
+                )
+                .orElseThrow(() -> new IllegalStateException(
+                        "No evaluated exam attempt found"
+                ));
+
+        if (attempt.getScore() == null) {
+            throw new IllegalStateException(
+                    "Exam attempt score is not available"
+            );
+        }
+
+        score = attempt.getScore();
+        */
+
+        // ❌ Prevent duplicate certificate
         if (certificateRepository.existsByUserIdAndTargetTypeAndTargetId(
                 userId, targetType, targetId)) {
 
             throw new IllegalStateException("Certificate already exists");
         }
 
-        // 2️⃣ Generate certificate ID
+        // 🆔 Generate certificate ID
         String certificateId = "CERT-" + UUID.randomUUID()
                 .toString()
                 .substring(0, 8)
                 .toUpperCase();
 
-        // 3️⃣ Generate secure token
+        // 🔑 Generate verification token
         String verificationToken = UUID.randomUUID().toString();
 
-        // 4️⃣ Create certificate object
+        // 🏗 Create certificate
         Certificate certificate = Certificate.builder()
                 .certificateId(certificateId)
                 .verificationToken(verificationToken)
-                .userId(userId)
+                .userId(userId)          // still stored in user_id column
+                .studentName(studentName)
                 .targetType(targetType)
                 .targetId(targetId)
-                .score(score)
+                .eventTitle(eventTitle)
+                .score(score)            // TEMP: using request score
                 .issuedDate(LocalDateTime.now())
                 .status(CertificateStatus.ACTIVE)
                 .version(1)
@@ -60,21 +109,30 @@ public class CertificateServiceImpl implements CertificateService {
                 .updatedAt(LocalDateTime.now())
                 .build();
 
-        // 5️⃣ Save first to generate ID
-        Certificate savedCertificate = certificateRepository.save(certificate);
+        Certificate saved = certificateRepository.save(certificate);
 
-        // 6️⃣ Generate PDF
-        String pdfPath = certificatePdfService.generatePdf(
-                savedCertificate,
-                "Student " + userId,          // Later replace with real student name
-                targetType.name() + " " + targetId
+        // 📝 Audit Log
+        auditLogRepository.save(
+                CertificateAuditLog.builder()
+                        .certificateId(saved.getId())
+                        .action("GENERATED")
+                        .performedBy(userId)
+                        .actionDate(LocalDateTime.now())
+                        .remarks("Manual certificate generation (TEMP mode)")
+                        .build()
         );
 
-        // 7️⃣ Save PDF path
-        savedCertificate.setPdfUrl(pdfPath);
-        savedCertificate.setUpdatedAt(LocalDateTime.now());
+        // 📄 Generate PDF
+        String pdfPath = certificatePdfService.generatePdf(
+                saved,
+                studentName,
+                eventTitle
+        );
 
-        return certificateRepository.save(savedCertificate);
+        saved.setPdfUrl(pdfPath);
+        saved.setUpdatedAt(LocalDateTime.now());
+
+        return certificateRepository.save(saved);
     }
 
     @Override
@@ -96,5 +154,16 @@ public class CertificateServiceImpl implements CertificateService {
         certificate.setUpdatedAt(LocalDateTime.now());
 
         certificateRepository.save(certificate);
+
+        // 📝 Audit Log - REVOKED
+        auditLogRepository.save(
+                CertificateAuditLog.builder()
+                        .certificateId(certificateId)
+                        .action("REVOKED")
+                        .performedBy(null)
+                        .actionDate(LocalDateTime.now())
+                        .remarks(reason)
+                        .build()
+        );
     }
 }
