@@ -57,10 +57,15 @@ public class Exam {
     
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted = false;
+    
+    @Column(name = "certificate_enabled", nullable = false)
+    private Boolean certificateEnabled = false;
 
     @PrePersist
     protected void onCreate() {
         this.status = "DRAFT";
         this.createdAt = LocalDateTime.now();
+        
+        
     }
 }

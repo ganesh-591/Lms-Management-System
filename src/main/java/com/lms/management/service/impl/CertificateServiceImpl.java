@@ -9,25 +9,25 @@ import com.lms.management.enums.CertificateStatus;
 import com.lms.management.enums.TargetType;
 import com.lms.management.model.Certificate;
 import com.lms.management.model.CertificateAuditLog;
+import com.lms.management.model.CertificateProgress;
 import com.lms.management.repository.CertificateAuditLogRepository;
+import com.lms.management.repository.CertificateProgressRepository;
 import com.lms.management.repository.CertificateRepository;
-import com.lms.management.repository.ExamAttemptRepository;
-import com.lms.management.service.CertificateEligibilityService;
 import com.lms.management.service.CertificatePdfService;
 import com.lms.management.service.CertificateService;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class CertificateServiceImpl implements CertificateService {
 
     private final CertificateRepository certificateRepository;
     private final CertificatePdfService certificatePdfService;
     private final CertificateAuditLogRepository auditLogRepository;
-    private final CertificateEligibilityService certificateEligibilityService;
-    private final ExamAttemptRepository examAttemptRepository;
-    
+    private final CertificateProgressRepository certificateProgressRepository;
 
     @Override
     public Certificate generateCertificateIfEligible(
@@ -36,72 +36,81 @@ public class CertificateServiceImpl implements CertificateService {
             Long targetId,
             String studentName,
             String eventTitle,
-            Double score   // TEMP: coming from request
+            Double score // will NOT be used anymore
     ) {
 
-        /*
-         =========================================================
-         🔐 ELIGIBILITY BLOCK (TEMP DISABLED)
-         =========================================================
+    	// =========================================================
+    	// 🔐 1️⃣ READ PROGRESS & CHECK ELIGIBILITY
+    	// =========================================================
+    	// 🔐 1️⃣ READ OR CREATE PROGRESS (HYBRID MODE)
+    	// =========================================================
+    	CertificateProgress progress =
+    	        certificateProgressRepository
+    	                .findByUserIdAndTargetTypeAndTargetId(
+    	                        userId,
+    	                        targetType,
+    	                        targetId
+    	                )
+    	                .orElse(null);
 
-        boolean eligible = certificateEligibilityService
-                .isEligible(userId, targetType.name(), targetId);
+    	// 🔹 If no progress → Manual override mode
+    	if (progress == null) {
 
-        if (!eligible) {
-            throw new IllegalStateException("User is not eligible for certificate");
-        }
-        */
+    	    progress = new CertificateProgress();
+    	    progress.setUserId(userId);
+    	    progress.setTargetType(targetType);
+    	    progress.setTargetId(targetId);
+    	    progress.setScore(score); // from request
+    	    progress.setEligibilityStatus(
+    	            com.lms.management.enums.CertificateEligibilityStatus.ELIGIBLE
+    	    );
+    	    progress.setUpdatedAt(LocalDateTime.now());
 
-        /*
-         =========================================================
-         📊 AUTO SCORE FETCH BLOCK (TEMP DISABLED)
-         =========================================================
+    	    certificateProgressRepository.save(progress);
 
-        ExamAttempt attempt = examAttemptRepository
-                .findTopByStudentIdAndExamIdAndStatusOrderByScoreDesc(
-                        userId,
-                        targetId,
-                        "EVALUATED"
-                )
-                .orElseThrow(() -> new IllegalStateException(
-                        "No evaluated exam attempt found"
-                ));
+    	} else {
 
-        if (attempt.getScore() == null) {
-            throw new IllegalStateException(
-                    "Exam attempt score is not available"
-            );
-        }
+    	    // 🔹 If progress exists → enforce eligibility rule
+    	    if (progress.getEligibilityStatus() == null ||
+    	        !progress.getEligibilityStatus().name().equals("ELIGIBLE")) {
 
-        score = attempt.getScore();
-        */
+    	        throw new IllegalStateException("User is not eligible for certificate");
+    	    }
+    	}
 
-        // ❌ Prevent duplicate certificate
+    	Double finalScore = progress.getScore() != null ? progress.getScore() : 0.0;
+
+        // =========================================================
+        // ❌ 3️⃣ PREVENT DUPLICATE CERTIFICATE
+        // =========================================================
         if (certificateRepository.existsByUserIdAndTargetTypeAndTargetId(
                 userId, targetType, targetId)) {
 
             throw new IllegalStateException("Certificate already exists");
         }
 
-        // 🆔 Generate certificate ID
+        // =========================================================
+        // 🆔 4️⃣ GENERATE IDS
+        // =========================================================
         String certificateId = "CERT-" + UUID.randomUUID()
                 .toString()
                 .substring(0, 8)
                 .toUpperCase();
 
-        // 🔑 Generate verification token
         String verificationToken = UUID.randomUUID().toString();
 
-        // 🏗 Create certificate
+        // =========================================================
+        // 🏗 5️⃣ CREATE CERTIFICATE
+        // =========================================================
         Certificate certificate = Certificate.builder()
                 .certificateId(certificateId)
                 .verificationToken(verificationToken)
-                .userId(userId)          // still stored in user_id column
+                .userId(userId)
                 .studentName(studentName)
                 .targetType(targetType)
                 .targetId(targetId)
                 .eventTitle(eventTitle)
-                .score(score)            // TEMP: using request score
+                .score(finalScore) // 🔥 using DB score
                 .issuedDate(LocalDateTime.now())
                 .status(CertificateStatus.ACTIVE)
                 .version(1)
@@ -111,18 +120,22 @@ public class CertificateServiceImpl implements CertificateService {
 
         Certificate saved = certificateRepository.save(certificate);
 
-        // 📝 Audit Log
+        // =========================================================
+        // 📝 6️⃣ AUDIT LOG
+        // =========================================================
         auditLogRepository.save(
                 CertificateAuditLog.builder()
                         .certificateId(saved.getId())
                         .action("GENERATED")
                         .performedBy(userId)
                         .actionDate(LocalDateTime.now())
-                        .remarks("Manual certificate generation (TEMP mode)")
+                        .remarks("Manual certificate generation")
                         .build()
         );
 
-        // 📄 Generate PDF
+        // =========================================================
+        // 📄 7️⃣ GENERATE PDF
+        // =========================================================
         String pdfPath = certificatePdfService.generatePdf(
                 saved,
                 studentName,
@@ -137,7 +150,6 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     public Certificate verifyCertificate(String token) {
-
         return certificateRepository.findByVerificationToken(token)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid certificate token"));
     }
@@ -155,7 +167,6 @@ public class CertificateServiceImpl implements CertificateService {
 
         certificateRepository.save(certificate);
 
-        // 📝 Audit Log - REVOKED
         auditLogRepository.save(
                 CertificateAuditLog.builder()
                         .certificateId(certificateId)
@@ -165,5 +176,25 @@ public class CertificateServiceImpl implements CertificateService {
                         .remarks(reason)
                         .build()
         );
+    }
+
+    @Override
+    public void updateExpiryDate(Long certificateId, String expiryDateStr) {
+
+        Certificate certificate = certificateRepository.findById(certificateId)
+                .orElseThrow(() -> new RuntimeException("Certificate not found"));
+
+        LocalDateTime expiryDate = LocalDateTime.parse(expiryDateStr);
+
+        certificate.setExpiryDate(expiryDate);
+        certificate.setUpdatedAt(LocalDateTime.now());
+
+        if (expiryDate.isBefore(LocalDateTime.now())) {
+            certificate.setStatus(CertificateStatus.EXPIRED);
+        } else {
+            certificate.setStatus(CertificateStatus.ACTIVE);
+        }
+
+        certificateRepository.save(certificate);
     }
 }

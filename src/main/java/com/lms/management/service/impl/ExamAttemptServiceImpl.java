@@ -24,6 +24,7 @@ import com.lms.management.repository.ExamRepository;
 import com.lms.management.repository.ExamResponseRepository;
 import com.lms.management.repository.ExamSectionRepository;
 import com.lms.management.repository.ExamSettingsRepository;
+import com.lms.management.service.CertificateProgressService;
 import com.lms.management.service.CertificateService; // ✅ ADDED
 import com.lms.management.service.CodingExecutionService;
 import com.lms.management.service.ExamAttemptService;
@@ -43,7 +44,8 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
     private final CodingExecutionService codingExecutionService;
     private final ExamSectionRepository examSectionRepository;
     private final com.lms.management.service.EmailNotificationService emailNotificationService;
-    private final CertificateService certificateService; // ✅ ADDED
+    private final CertificateService certificateService;// ✅ ADDED
+    private final CertificateProgressService certificateProgressService;
 
     public ExamAttemptServiceImpl(
             ExamAttemptRepository examAttemptRepository,
@@ -56,7 +58,8 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
             CodingExecutionService codingExecutionService,
             ExamSectionRepository examSectionRepository,
             com.lms.management.service.EmailNotificationService emailNotificationService,
-            CertificateService certificateService) { // ✅ ADDED
+            CertificateService certificateService,
+            CertificateProgressService certificateProgressService) {
 
         this.examAttemptRepository = examAttemptRepository;
         this.examRepository = examRepository;
@@ -68,7 +71,8 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
         this.codingExecutionService = codingExecutionService;
         this.examSectionRepository = examSectionRepository;
         this.emailNotificationService = emailNotificationService;
-        this.certificateService = certificateService; // ✅ ADDED
+        this.certificateService = certificateService;
+        this.certificateProgressService = certificateProgressService; // 🔥 IMPORTANT
     }
 
     private void checkAndAutoSubmitIfExpired(ExamAttempt attempt) {
@@ -220,6 +224,16 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
         examAttemptRepository.save(attempt);
 
         // ===============================
+        // 📊 UPDATE CERTIFICATE PROGRESS
+        // ===============================
+        certificateProgressService.updateExamProgress(
+                attempt.getStudentId(),
+                TargetType.EXAM,
+                attempt.getExamId(),
+                attempt.getScore()
+        );
+
+        // ===============================
         // 🎓 AUTO CERTIFICATE GENERATION
         // ===============================
         try {
@@ -227,18 +241,19 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
             double percentage = (attempt.getScore() / exam.getTotalMarks()) * 100;
             boolean passed = percentage >= exam.getPassPercentage();
 
-            if (passed) {
-                certificateService.generateCertificateIfEligible(
-                        attempt.getStudentId(),
-                        TargetType.EXAM,
-                        exam.getExamId(),
-                        "Student " + attempt.getStudentId(),
-                        exam.getTitle(),
-                        attempt.getScore()   // ✅ ADD THIS
-                );
-            }
+         // 🎓 Hybrid Mode Certificate Generation
+         if (Boolean.TRUE.equals(exam.getCertificateEnabled()) && passed) {
 
-            // 📧 SEND EMAIL
+             certificateService.generateCertificateIfEligible(
+                     attempt.getStudentId(),
+                     TargetType.EXAM,
+                     exam.getExamId(),
+                     "Student " + attempt.getStudentId(), // later you can fetch real name
+                     exam.getTitle(),
+                     attempt.getScore()
+             );
+         }
+
             emailNotificationService.sendExamResultNotification(
                     attempt.getStudentId(),
                     exam.getTitle(),

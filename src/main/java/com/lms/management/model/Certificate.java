@@ -7,6 +7,8 @@ import com.lms.management.enums.TargetType;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -66,11 +68,11 @@ public class Certificate {
 
     @Column(name = "issued_date", nullable = false)
     private LocalDateTime issuedDate;
-
     @Column(name = "expiry_date")
     private LocalDateTime expiryDate;
 
-    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
     private CertificateStatus status;
 
     @Column(name = "revoked_reason")

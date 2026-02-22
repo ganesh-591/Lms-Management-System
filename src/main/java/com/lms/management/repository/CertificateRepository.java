@@ -1,5 +1,6 @@
 package com.lms.management.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,8 +29,9 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long> 
     List<Certificate> findByStatus(CertificateStatus status);
 
     // Get expiring certificates (for reminder job)
+    
     List<Certificate> findByExpiryDateBeforeAndStatus(
-            java.time.LocalDateTime date,
+            LocalDateTime expiryDate,
             CertificateStatus status
     );
 }

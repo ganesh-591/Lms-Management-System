@@ -2,9 +2,11 @@ package com.lms.management.controller;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
@@ -33,7 +35,9 @@ public class CertificateController {
     private final CertificateService certificateService;
     private final CertificateRepository certificateRepository;
 
-    // 🔐 Manual generate only
+    // =========================================================
+    // 🔐 MANUAL GENERATE
+    // =========================================================
     @PostMapping("/manual-generate")
     public Certificate manualGenerate(@RequestBody Map<String, String> request) {
 
@@ -42,7 +46,8 @@ public class CertificateController {
         Long targetId = Long.parseLong(request.get("targetId"));
         String studentName = request.get("studentName");
         String eventTitle = request.get("eventTitle");
-        Double score = Double.parseDouble(request.get("score"));   // ✅ ADD THIS
+
+        // ❌ Score removed (now auto fetched from DB)
 
         return certificateService.generateCertificateIfEligible(
                 userId,
@@ -50,39 +55,114 @@ public class CertificateController {
                 targetId,
                 studentName,
                 eventTitle,
-                score     // ✅ PASS THIS
+                null   // score not needed anymore
         );
     }
 
-    @GetMapping("/{id}")
-    public Certificate getCertificateById(@PathVariable Long id) {
-        return certificateRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Certificate not found"));
+    // =========================================================
+    // 🔎 VERIFY CERTIFICATE (GET - Query Param)
+    // =========================================================
+    @GetMapping("/verify")
+    public Certificate verifyCertificate(@RequestParam String token) {
+        return certificateService.verifyCertificate(token);
     }
 
+    @PostMapping("/verify")
+    public Certificate verifyCertificatePost(
+            @RequestBody Map<String, String> request
+    ) {
+        String token = request.get("token");
+        return certificateService.verifyCertificate(token);
+    }
+
+    // =========================================================
+    // 🌍 PUBLIC VERIFY (QR LINK)
+    // =========================================================
+    @GetMapping("/public/{token}")
+    public ResponseEntity<String> verifyCertificatePublic(@PathVariable String token)
+            throws IOException {
+
+        Certificate certificate = certificateService.verifyCertificate(token);
+
+        ClassPathResource resource =
+                new ClassPathResource("templates/certificate-verification.html");
+
+        String html = new String(resource.getInputStream().readAllBytes(),
+                StandardCharsets.UTF_8);
+
+        String statusMessage;
+
+        switch (certificate.getStatus()) {
+            case ACTIVE:
+                statusMessage = "VALID";
+                break;
+            case REVOKED:
+                statusMessage = "REVOKED";
+                break;
+            case EXPIRED:
+                statusMessage = "EXPIRED";
+                break;
+            default:
+                statusMessage = "UNKNOWN";
+        }
+        
+        html = html.replace("{{studentName}}", certificate.getStudentName())
+                .replace("{{eventTitle}}", certificate.getEventTitle())
+                .replace("{{score}}", String.valueOf(certificate.getScore()))
+                .replace("{{issuedDate}}",
+                         certificate.getIssuedDate().toLocalDate().toString())
+                .replace("{{status}}", statusMessage)
+                .replace("{{certificateId}}", certificate.getCertificateId());
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, "text/html")
+                .body(html);
+    }
+
+    // =========================================================
+    // 👤 GET CERTIFICATES BY USER
+    // =========================================================
     @GetMapping("/user/{userId}")
     public List<Certificate> getCertificatesByUser(@PathVariable Long userId) {
         return certificateRepository.findByUserId(userId);
     }
 
+    // =========================================================
+    // 🚫 REVOKE CERTIFICATE
+    // =========================================================
     @PutMapping("/{id}/revoke")
     public Certificate revokeCertificate(
             @PathVariable Long id,
             @RequestBody Map<String, String> request
     ) {
-        String reason = request.get("reason");
 
+        String reason = request.get("reason");
         certificateService.revokeCertificate(id, reason);
 
         return certificateRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Certificate not found"));
     }
 
-    @GetMapping("/verify")
-    public Certificate verifyCertificateByToken(@RequestParam String token) {
-        return certificateService.verifyCertificate(token);
+    // =========================================================
+    // ⏳ SET / UPDATE EXPIRY DATE
+    // =========================================================
+    @PutMapping("/{id}/expiry")
+    public Certificate updateExpiry(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request
+    ) {
+
+        String expiryDateStr = request.get("expiryDate");
+
+        certificateService.updateExpiryDate(id, expiryDateStr);
+
+        return certificateRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Certificate not found"));
     }
 
+    // =========================================================
+    // 📥 VIEW PDF INLINE
+    // =========================================================
     @GetMapping("/{id}/download")
     public ResponseEntity<Resource> downloadCertificate(@PathVariable Long id) throws IOException {
 
@@ -97,5 +177,15 @@ public class CertificateController {
                         "inline; filename=\"" + file.getName() + "\"")
                 .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
                 .body(resource);
+    }
+
+    // =========================================================
+    // 📄 GET CERTIFICATE BY ID
+    // IMPORTANT: Keep this LAST to avoid route conflicts
+    // =========================================================
+    @GetMapping("/{id}")
+    public Certificate getCertificateById(@PathVariable Long id) {
+        return certificateRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Certificate not found"));
     }
 }

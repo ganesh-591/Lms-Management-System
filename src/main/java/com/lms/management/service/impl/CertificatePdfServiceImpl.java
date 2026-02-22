@@ -4,11 +4,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 import com.google.zxing.BarcodeFormat;
@@ -27,10 +27,13 @@ public class CertificatePdfServiceImpl implements CertificatePdfService {
 
         try {
 
-            String template = new String(
-                    Files.readAllBytes(
-                            Paths.get("src/main/resources/templates/certificate-template.html"))
-            );
+        	ClassPathResource resource =
+        	        new ClassPathResource("templates/certificate-template.html");
+
+        	String template = new String(
+        	        resource.getInputStream().readAllBytes(),
+        	        StandardCharsets.UTF_8
+        	);
 
             // 🔥 UPDATED: QR now points to public verification page
             String verifyUrl = "http://localhost:5151/api/certificates/public/"
@@ -41,7 +44,9 @@ public class CertificatePdfServiceImpl implements CertificatePdfService {
             template = template.replace("{{studentName}}", studentName);
             template = template.replace("{{examTitle}}", eventTitle);
             template = template.replace("{{score}}",
-                    String.valueOf(certificate.getScore()));
+                    certificate.getScore() != null
+                            ? String.valueOf(certificate.getScore())
+                            : "0");
             template = template.replace("{{date}}",
                     certificate.getIssuedDate()
                             .format(DateTimeFormatter.ofPattern("dd MMM yyyy")));
@@ -57,7 +62,8 @@ public class CertificatePdfServiceImpl implements CertificatePdfService {
 
             try (OutputStream os = new FileOutputStream(outputPath)) {
                 PdfRendererBuilder builder = new PdfRendererBuilder();
-                builder.withHtmlContent(template, null);
+                builder.useFastMode();                       // 🔥 add this
+                builder.withHtmlContent(template, "file:/"); // 🔥 change null to file:/
                 builder.toStream(os);
                 builder.run();
             }
@@ -65,6 +71,7 @@ public class CertificatePdfServiceImpl implements CertificatePdfService {
             return outputPath;
 
         } catch (Exception e) {
+            e.printStackTrace();  // 🔥 ADD THIS
             throw new RuntimeException("PDF generation failed", e);
         }
     }

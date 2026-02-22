@@ -18,4 +18,6 @@ public interface CertificateService {
     Certificate verifyCertificate(String token);
 
     void revokeCertificate(Long certificateId, String reason);
+    
+    void updateExpiryDate(Long certificateId, String expiryDate);
 }

@@ -12,6 +12,7 @@ import com.lms.management.model.CertificateAuditLog;
 import com.lms.management.repository.CertificateAuditLogRepository;
 import com.lms.management.repository.CertificateRepository;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Component
@@ -19,10 +20,11 @@ import lombok.RequiredArgsConstructor;
 public class CertificateExpiryScheduler {
 
     private final CertificateRepository certificateRepository;
-    private final CertificateAuditLogRepository auditLogRepository; // 🔥 added
+    private final CertificateAuditLogRepository auditLogRepository;
 
-    // 🔥 Runs once every day at 1 AM
+    // 🔥 Runs every day at 1 AM
     @Scheduled(cron = "0 0 1 * * ?")
+    @Transactional
     public void expireCertificates() {
 
         LocalDateTime now = LocalDateTime.now();
@@ -40,15 +42,14 @@ public class CertificateExpiryScheduler {
         for (Certificate certificate : expiredCertificates) {
 
             certificate.setStatus(CertificateStatus.EXPIRED);
-            certificate.setUpdatedAt(LocalDateTime.now());
+            certificate.setUpdatedAt(now);
 
-            // 🔥 Log EXPIRED action
             auditLogRepository.save(
                     CertificateAuditLog.builder()
                             .certificateId(certificate.getId())
                             .action("EXPIRED")
                             .performedBy(null) // system action
-                            .actionDate(LocalDateTime.now())
+                            .actionDate(now)
                             .remarks("Certificate auto-expired by scheduler")
                             .build()
             );

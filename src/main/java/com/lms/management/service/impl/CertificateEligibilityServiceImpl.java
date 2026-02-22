@@ -5,9 +5,12 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
+import com.lms.management.enums.CertificateEligibilityStatus;
 import com.lms.management.enums.TargetType;
+import com.lms.management.model.CertificateProgress;
 import com.lms.management.model.CertificateRule;
 import com.lms.management.model.ExamAttempt;
+import com.lms.management.repository.CertificateProgressRepository;
 import com.lms.management.repository.CertificateRuleRepository;
 import com.lms.management.repository.ExamAttemptRepository;
 import com.lms.management.service.CertificateEligibilityService;
@@ -20,11 +23,25 @@ public class CertificateEligibilityServiceImpl implements CertificateEligibility
 
     private final CertificateRuleRepository certificateRuleRepository;
     private final ExamAttemptRepository examAttemptRepository;
+    private final CertificateProgressRepository certificateProgressRepository;
 
     @Override
     public boolean isEligible(Long userId,
                               TargetType targetType,
                               Long targetId) {
+
+        // 🔵 STEP 0 – First check certificate_progress
+        Optional<CertificateProgress> progressOpt =
+                certificateProgressRepository
+                        .findByUserIdAndTargetTypeAndTargetId(
+                                userId, targetType, targetId
+                        );
+
+        if (progressOpt.isPresent()) {
+            return progressOpt.get().getEligibilityStatus() ==
+                    CertificateEligibilityStatus.ELIGIBLE;
+        }
+
 
         // 🔐 Currently support only EXAM
         if (targetType != TargetType.EXAM) {
@@ -69,4 +86,6 @@ public class CertificateEligibilityServiceImpl implements CertificateEligibility
 
         return attemptScore.compareTo(rule.getRequiredScore()) >= 0;
     }
+    
+    
 }

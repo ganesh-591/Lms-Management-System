@@ -1,34 +1,48 @@
-<!DOCTYPE html>
-<html>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-    <meta charset="UTF-8"/>
-    <style>
+    <meta charset="UTF-8" />
+    <title>Certificate</title>
+
+    <style type="text/css">
         body {
             font-family: Arial, sans-serif;
             text-align: center;
             border: 8px solid #1e3a8a;
             padding: 60px;
         }
+
         h1 {
             font-size: 36px;
             color: #1e3a8a;
+            margin-bottom: 20px;
         }
+
         .name {
             font-size: 28px;
             margin: 20px 0;
             font-weight: bold;
         }
+
         .details {
             font-size: 18px;
             margin-top: 20px;
         }
+
         .footer {
             margin-top: 40px;
             font-size: 14px;
             color: gray;
         }
+
+        .qr {
+            margin-top: 30px;
+        }
     </style>
 </head>
+
 <body>
 
 <h1>Certificate of Completion</h1>
@@ -40,13 +54,14 @@
 <p>has successfully completed</p>
 
 <div class="details">
-    <strong>{{examTitle}}</strong><br/>
-    Score: {{score}}<br/>
+    <strong>{{examTitle}}</strong><br />
+    Score: {{score}}<br />
     Date: {{date}}
 </div>
 
-<br/>
-<img src="data:image/png;base64,{{qrCode}}" width="120" height="120"/>
+<div class="qr">
+    <img src="data:image/png;base64,{{qrCode}}" width="120" height="120" alt="QR Code" />
+</div>
 
 <div class="footer">
     Certificate ID: {{certificateId}}
